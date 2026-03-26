@@ -208,8 +208,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
   <div class="hdr"><div></div><div class="htl" style="font-family:'Noto Serif TC',serif">帳本</div><div></div></div>
   <div class="sa">
     <div class="mg">
-      <div class="mc"><div class="ml">本月支出</div><div class="mv">15,550</div></div>
-      <div class="mc"><div class="ml">本月收入</div><div class="mv">28,000</div></div>
+      <div class="mc"><div class="ml">本月支出</div><div class="mv">0</div></div>
+      <div class="mc"><div class="ml">本月收入</div><div class="mv">0</div></div>
     </div>
     <div class="tb"><div class="tab active" onclick="swTab(this)">全部</div><div class="tab" onclick="swTab(this)">支出</div><div class="tab" onclick="swTab(this)">收入</div><div class="tab" onclick="swTab(this)">投資</div></div>
     <div class="card">
@@ -410,23 +410,29 @@ async function loadAllData(){
   }
   // 季排序
   S.seasons.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-  if(S.seasons.length > 0 && !S.seasons.find(s=>s.id===S.currentSeasonId)){
-    S.currentSeasonId = S.seasons[0].id;
+  if(S.seasons.length > 0){
+    // always set to first season if currentSeasonId not valid
+    if(!S.currentSeasonId || !S.seasons.find(s=>s.id===S.currentSeasonId)){
+      S.currentSeasonId = S.seasons[0].id;
+    }
+  } else {
+    S.currentSeasonId = null;
   }
 }
 
-// ── 儲存季 ──
-async function saveSeason(season){
-  const { members, sessions, ...data } = season;
-  await setDoc(seasonDoc(season.id), data);
+// ── 儲存季（用 setDoc 指定 id）──
+async function saveSeason(sid, data){
+  const { members, sessions, ...d } = data;
+  await setDoc(doc(db, userPath(), 'seasons', String(sid)), {...d, id:String(sid)});
 }
 // ── 儲存成員 ──
 async function saveMember(sid, member){
-  await setDoc(memberDoc(sid, member.id), member);
+  await setDoc(doc(db, userPath(),'seasons',String(sid),'members',String(member.id)), member);
 }
 // ── 儲存場次 ──
 async function saveSession(sid, session){
-  await setDoc(sessionDoc(sid, session.id), session);
+  const {id, ...data}=session;
+  await setDoc(doc(db, userPath(),'seasons',String(sid),'sessions',String(id)), {id:String(id),...data});
 }
 
 // ── 顯示儲存中提示 ──
@@ -1078,7 +1084,7 @@ window.addSeason = async function(){
   S.seasons.unshift({...newSeason,members:[],sessions:[]});
   S.currentSeasonId=newId;
   closeM(); renderVbPage();
-  showSaving(); await saveSeason(newSeason); hideSaving();
+  showSaving(); await saveSeason(newId, newSeason); hideSaving();
 };
 
 window.addMember = async function(){
