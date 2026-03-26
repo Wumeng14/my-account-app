@@ -882,6 +882,7 @@ function curFilter(){const t=document.querySelector('#page-fees .tab.active');if
 function buildFC(m){
   const season=curSeason();
   const av=avCls(m);
+  const mid=m.id;
   let statusBdg=m.paid?(m.refund>0&&m.rs==='pending'?`<span class="bdg ba">待退費</span>`:`<span class="bdg bg">已繳</span>`):`<span class="bdg br">未繳</span>`;
   const amtTxt=m.refund>0?`應繳 ${season.fee.toLocaleString()}（退費 -${m.refund}）`:`應繳 ${season.fee.toLocaleString()}`;
   const ml=m.method==='line'?'LinePay':m.method==='bank'?'轉帳':m.method==='cash'?'現金':'';
@@ -890,39 +891,40 @@ function buildFC(m){
   let body='';
   if(!m.paid){
     const lS=m.method==='line'?'sl':'',bS=m.method==='bank'?'sb':'',cS=m.method==='cash'?'sc':'';
-    const cols=season.members.filter(x=>x.id!==m.id).slice(0,4).map(x=>`<span class="cc${m.by===x.name?' sel':''}" style="font-size:11px;padding:4px 10px" onclick="selMBy(${m.id},'${x.name}',this)">${x.name}</span>`).join('');
-    body=`<div class="fcb" id="fb-${m.id}">
+    const cols=season.members.filter(x=>x.id!==mid).slice(0,4).map(x=>`<span class="cc${m.by===x.name?' sel':''}" style="font-size:11px;padding:4px 10px" onclick="selMBy('${mid}','${x.name}',this)">${x.name}</span>`).join('');
+    body=`<div class="fcb" id="fb-${mid}">
       <div class="fl">繳費方式</div>
-      <div class="pr" id="fpr-${m.id}">
-        <div class="pbb ${lS}" onclick="selMM(${m.id},'line',this)">LinePay</div>
-        <div class="pbb ${bS}" onclick="selMM(${m.id},'bank',this)">轉帳</div>
-        <div class="pbb ${cS}" onclick="selMM(${m.id},'cash',this)">現金</div>
+      <div class="pr" id="fpr-${mid}">
+        <div class="pbb ${lS}" onclick="selMM('${mid}','line',this)">LinePay</div>
+        <div class="pbb ${bS}" onclick="selMM('${mid}','bank',this)">轉帳</div>
+        <div class="pbb ${cS}" onclick="selMM('${mid}','cash',this)">現金</div>
       </div>
-      <div id="fbank-${m.id}">${bS?`<input class="fi" style="margin:8px 0 0;padding:8px 12px;font-size:13px" placeholder="轉帳帳號後五碼" maxlength="5" value="${m.bank||''}" oninput="curSeason().members.find(x=>x.id==${m.id}).bank=this.value">`:''}
+      <div id="fbank-${mid}">${bS?`<input class="fi" style="margin:8px 0 0;padding:8px 12px;font-size:13px" placeholder="轉帳帳號後五碼" maxlength="5" value="${m.bank||''}" oninput="curSeason().members.find(x=>x.id==='${mid}').bank=this.value">`:''}
       </div>
       <div style="margin-top:10px">
         <div class="fl">代繳者（選填）</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px" id="fcol-${m.id}">
-          ${cols}<span class="cc" style="font-size:11px;padding:4px 10px" onclick="showMCI(${m.id})">自行輸入</span>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px" id="fcol-${mid}">
+          ${cols}<span class="cc" style="font-size:11px;padding:4px 10px" onclick="showMCI('${mid}')">自行輸入</span>
         </div>
-        <input class="fi" id="fci-${m.id}" style="display:none;padding:8px 12px;font-size:13px;margin:0" placeholder="代繳者姓名" value="${m.by||''}" oninput="curSeason().members.find(x=>x.id==${m.id}).by=this.value">
+        <input class="fi" id="fci-${mid}" style="display:none;padding:8px 12px;font-size:13px;margin:0" placeholder="代繳者姓名" value="${m.by||''}" oninput="curSeason().members.find(x=>x.id==='${mid}').by=this.value">
       </div>
-      <button class="bpb" style="margin-top:12px" onclick="markMP(${m.id})">✓ 確認已繳</button>
+      <button class="bpb" style="margin-top:12px" onclick="markMP('${mid}')">✓ 確認已繳</button>
     </div>`;
   } else {
     const lS=m.method==='line'?'sl':'',bS=m.method==='bank'?'sb':'',cS=m.method==='cash'?'sc':'';
-    body=`<div class="fcb hidden" id="fb-${m.id}">
+    body=`<div class="fcb hidden" id="fb-${mid}">
       <div class="fl">修改繳費方式</div>
-      <div class="pr">
-        <div class="pbb ${lS}" onclick="selMM(${m.id},'line',this)">LinePay</div>
-        <div class="pbb ${bS}" onclick="selMM(${m.id},'bank',this)">轉帳</div>
-        <div class="pbb ${cS}" onclick="selMM(${m.id},'cash',this)">現金</div>
+      <div class="pr" id="fpr-${mid}">
+        <div class="pbb ${lS}" onclick="selMM('${mid}','line',this)">LinePay</div>
+        <div class="pbb ${bS}" onclick="selMM('${mid}','bank',this)">轉帳</div>
+        <div class="pbb ${cS}" onclick="selMM('${mid}','cash',this)">現金</div>
       </div>
-      <button class="bpb" style="background:var(--rdb);color:var(--rd);border:1px solid var(--rdbd);margin-top:10px" onclick="unmarkMP(${m.id})">取消已繳</button>
+      <div id="fbank-${mid}"></div>
+      <button class="bpb" style="background:var(--rdb);color:var(--rd);border:1px solid var(--rdbd);margin-top:10px" onclick="unmarkMP('${mid}')">取消已繳</button>
     </div>`;
   }
-  return `<div class="fc" id="fc-${m.id}">
-    <div class="fch" onclick="document.getElementById('fb-${m.id}').classList.toggle('hidden')">
+  return `<div class="fc" id="fc-${mid}">
+    <div class="fch" onclick="document.getElementById('fb-${mid}').classList.toggle('hidden')">
       <div class="av ${av}">${m.name.slice(0,2)}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
@@ -937,7 +939,7 @@ function buildFC(m){
   </div>`;
 }
 function selMM(id,method,el){
-  const m=curSeason().members.find(x=>x.id===id);m.method=method;
+  const m=curSeason().members.find(x=>x.id==id||x.id===String(id));if(!m)return;m.method=method;
   document.getElementById('fpr-'+id).querySelectorAll('.pbb').forEach(b=>b.className='pbb');
   el.classList.add(method==='line'?'sl':method==='bank'?'sb':'sc');
   const bi=document.getElementById('fbank-'+id);
@@ -950,7 +952,7 @@ function selMM(id,method,el){
   }
 }
 function selMBy(id,name,el){
-  curSeason().members.find(x=>x.id===id).by=name;
+  const _mb=curSeason().members.find(x=>x.id==id||x.id===String(id));if(_mb)_mb.by=name;
   document.querySelectorAll(`#fcol-${id} .cc`).forEach(c=>c.classList.remove('sel'));
   el.classList.add('sel');
   const ci=document.getElementById('fci-'+id);if(ci)ci.style.display='none';
@@ -960,13 +962,13 @@ function showMCI(id){
   document.querySelectorAll(`#fcol-${id} .cc`).forEach(c=>c.classList.remove('sel'));
 }
 function markMP(id){
-  const m=curSeason().members.find(x=>x.id===id);
+  const m=curSeason().members.find(x=>x.id==id||x.id===String(id));
   if(!m.method){alert('請先選擇繳費方式');return;}
   m.paid=true;const d=new Date();m.pdate=`${d.getMonth()+1}/${d.getDate()}`;
   renderFees(curFilter());
 }
 function unmarkMP(id){
-  const m=curSeason().members.find(x=>x.id===id);
+  const m=curSeason().members.find(x=>x.id==id||x.id===String(id));
   m.paid=false;m.method='';m.pdate='';m.by='';
   renderFees(curFilter());
 }
