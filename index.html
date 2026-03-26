@@ -522,14 +522,14 @@ function renderSeasonDD(){
   const dd=document.getElementById('season-dropdown');
   dd.innerHTML=S.seasons.map(s=>{
     const statusLabel=s.status==='active'?'進行中':'已結束';
-    return `<div class="season-opt${s.id===S.currentSeasonId?' active':''}" onclick="selectSeason(${s.id})">
+    return `<div class="season-opt${s.id===S.currentSeasonId?' active':''}" onclick="selectSeason('${s.id}')">
       <div class="season-opt-name">${s.name}</div>
       <div class="season-opt-date">${s.start} – ${s.end} ・ ${statusLabel}</div>
     </div>`;
   }).join('')+`<div class="season-add-opt" onclick="closeSeasonDD();openM('season')">＋ 新增季</div>`;
 }
 function selectSeason(id){
-  S.currentSeasonId=id;
+  S.currentSeasonId=String(id);
   closeSeasonDD();
   renderVbPage();
 }
@@ -836,15 +836,20 @@ function setRefundMode(sid,mode,el){
   el.classList.add('sel');
 }
 function updateGuestName(sid,gid,val){
-  const g=curSeason().sessions.find(x=>x.id===sid).guests.find(x=>x.id===gid);
+  const sess=curSeason().sessions.find(x=>x.id==sid||x.id===String(sid));
+  if(!sess) return;
+  const g=sess.guests.find(x=>x.id==gid||x.id===String(gid));
+  if(!g) return;
   g.name=val;
-  // 即時更新頭像顯示
   const card=document.getElementById('gmcb-'+gid);
   if(card){
     const header=card.previousElementSibling;
     if(header){
       const avEl=header.querySelector('.av');
-      if(avEl) avEl.textContent=val.slice(0,2);
+      if(avEl) avEl.textContent=val.slice(0,2)||'?';
+      // 同步更新名字顯示
+      const nameEl=header.querySelector('span[style*="font-weight:500"]');
+      if(nameEl) nameEl.textContent=val;
     }
   }
 }
@@ -917,13 +922,17 @@ function buildFC(m){
   let statusBdg=m.paid?(m.refund>0&&m.rs==='pending'?`<span class="bdg ba">待退費</span>`:`<span class="bdg bg">已繳</span>`):`<span class="bdg br">未繳</span>`;
   const amtTxt=m.refund>0?`應繳 ${season.fee.toLocaleString()}（退費 -${m.refund}）`:`應繳 ${season.fee.toLocaleString()}`;
   const ml=m.method==='line'?'LinePay':m.method==='bank'?'轉帳':m.method==='cash'?'現金':'';
-  const pInfo=m.paid?`<div style="font-size:10px;color:var(--t3);margin-top:2px">${ml} ${m.pdate}${m.by?' ・ 代收：'+m.by:''}</div>`:'';
+  const pInfo=m.paid?`<div style="font-size:10px;color:var(--t3);margin-top:2px">${ml} ${m.pdate}${m.paidAmount&&m.paidAmount!==season.fee?' ・ NT$'+m.paidAmount.toLocaleString():''}${m.by?' ・ 代收：'+m.by:''}${m.pNote?' ・ '+m.pNote:''}</div>`:'';
   const refNote=m.refund>0&&m.rs==='pending'?`<div style="font-size:10px;color:var(--am);margin-top:3px">退費 NT$${m.refund} ・ 待確認下季 → 暫擱置</div>`:'';
   let body='';
   if(!m.paid){
     const lS=m.method==='line'?'sl':'',bS=m.method==='bank'?'sb':'',cS=m.method==='cash'?'sc':'';
     const cols=season.members.filter(x=>x.id!==mid).slice(0,4).map(x=>`<span class="cc${m.by===x.name?' sel':''}" style="font-size:11px;padding:4px 10px" onclick="selMBy('${mid}','${x.name}',this)">${x.name}</span>`).join('');
     body=`<div class="fcb" id="fb-${mid}">
+      <div class="fl">實際繳費金額</div>
+      <input class="fi" id="famt-${mid}" type="number" value="${season.fee}" style="margin-bottom:10px" placeholder="NT$ 0">
+      <div class="fl">備註（選填）</div>
+      <input class="fi" id="fnote-${mid}" style="margin-bottom:10px" placeholder="備註">
       <div class="fl">繳費方式</div>
       <div class="pr" id="fpr-${mid}">
         <div class="pbb ${lS}" onclick="selMM('${mid}','line',this)">LinePay</div>
@@ -1053,7 +1062,24 @@ const modals={
   invest:{t:'投資投入',b:()=>`<div class="fl">投入金額</div><input class="fi" type="number" placeholder="NT$ 0"><div class="fl">投資標的</div><input class="fi" placeholder="例：台積電、0050"><div class="fl">類型</div>${catPicker(S.invCats,'inv')}<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">備註</div><input class="fi" placeholder="選填"><button class="bpb" onclick="closeM()">儲存</button><button class="bcb" onclick="closeM()">取消</button>`},
   member:{t:'新增成員',b:()=>`<div class="fl">姓名</div><input class="fi" placeholder="姓名"><div class="fl">性別</div>${genderSel('mem')}<div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="window.addMember()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
   session:{t:'新增場次',b:()=>`<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">狀態</div><div class="ro-w" style="margin:0 0 12px"><div class="ro sel" onclick="toggleRO(this)">正常</div><div class="ro" onclick="toggleRO(this)">取消</div></div><div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="window.addSession()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
-  season:{t:'新增季',b:()=>`<div class="fl">季名稱</div><input class="fi" id="sn-name" placeholder="例：2025 下半季">
+  season:{t:'新增季',b:()=>{
+    const hasPrev=S.seasons.length>0;
+    const prevMembers=hasPrev?(S.seasons[0].members||[]).filter(m=>!m.inactive):[];
+    const importSection=hasPrev&&prevMembers.length>0?`
+      <div class="fl">從「${S.seasons[0].name}」導入成員</div>
+      <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:11px;color:var(--t3)">勾選要帶入的成員</span>
+          <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="window.toggleAllImport(true)">全選</span>
+          <span style="font-size:11px;color:var(--t3);cursor:pointer;margin-left:6px" onclick="window.toggleAllImport(false)">取消</span>
+        </div>
+        ${prevMembers.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+          <input type="checkbox" id="imp-${m.id}" value="${m.id}" checked style="width:16px;height:16px;accent-color:var(--accent)">
+          <label for="imp-${m.id}" style="font-size:13px;flex:1;cursor:pointer">${m.name}</label>
+          <span style="font-size:10px;color:var(--t3)">${m.gender==='m'?'♂ 男':'♀ 女'}</span>
+        </div>`).join('')}
+      </div>`:'';
+    return `<div class="fl">季名稱</div><input class="fi" id="sn-name" placeholder="例：2025 下半季">
     <div class="fl">開始日期</div><input class="fi" id="sn-start" type="date">
     <div class="fl">結束日期</div><input class="fi" id="sn-end" type="date">
     <div class="fl">固定打球星期</div>
@@ -1068,7 +1094,9 @@ const modals={
     </div>
     <div class="fl">季費金額</div><input class="fi" id="sn-fee" type="number" placeholder="NT$ 0">
     <div class="fl">請假退費金額（固定）</div><input class="fi" id="sn-refund" type="number" placeholder="例：300">
-    <button class="bpb" onclick="window.addSeason()">建立</button><button class="bcb" onclick="closeM()">取消</button>`},
+    ${importSection}
+    <button class="bpb" onclick="window.addSeason()">建立</button><button class="bcb" onclick="closeM()">取消</button>`;
+  }},
   venue:{t:'新增包場',b:()=>`
     <div class="fl">包場日期</div><input class="fi" id="vn-date" type="date" value="${td()}">
     <div class="fl">場地名稱</div><input class="fi" id="vn-name" placeholder="例：○○體育館">
@@ -1135,12 +1163,36 @@ window.addSeason = async function(){
   const wdEl=document.querySelector('#weekday-sel .ro.sel');
   const weekday=wdEl?wdEl.textContent:'週六';
   if(!name){alert('請輸入季名稱');return;}
+  // 導入名單
+  const checked=document.querySelectorAll('#mb input[type=checkbox]:checked');
+  const prevSeason=S.seasons[0];
+  const importedMembers=[];
+  if(checked.length>0&&prevSeason){
+    checked.forEach(cb=>{
+      const orig=prevSeason.members.find(m=>m.id==cb.value||m.id===String(cb.value));
+      if(orig){
+        importedMembers.push({
+          ...orig,
+          id:String(Date.now()+Math.random()),
+          paid:false,method:'',pdate:'',by:'',bank:'',
+          refund:0,rs:'',inactive:false,createdAt:Date.now()
+        });
+      }
+    });
+  }
   const newId=String(Date.now());
   const newSeason={id:newId,name,start:start||'—',end:end||'—',status:'active',fee,absentRefund,weekday,venues:[],createdAt:Date.now()};
-  S.seasons.unshift({...newSeason,members:[],sessions:[]});
+  S.seasons.unshift({...newSeason,members:importedMembers,sessions:[]});
   S.currentSeasonId=newId;
   closeM(); renderVbPage();
-  showSaving(); await saveSeason(newId, newSeason); hideSaving();
+  showSaving();
+  await saveSeason(newId, newSeason);
+  for(const m of importedMembers) await saveMember(newId, m);
+  hideSaving();
+};
+
+window.toggleAllImport=function(check){
+  document.querySelectorAll('#mb input[type=checkbox]').forEach(cb=>cb.checked=check);
 };
 
 window.addVenue = async function(){
@@ -1212,8 +1264,13 @@ window.addGuest = async function(){
 // ── 標記繳費時同步 Firebase ──
 const _origMarkMP = window.markMP;
 window.markMP = async function(id){
-  const m=curSeason().members.find(x=>x.id==id);
+  const m=curSeason().members.find(x=>x.id==id||x.id===String(id));
+  if(!m){alert('找不到成員');return;}
   if(!m.method){alert('請先選擇繳費方式');return;}
+  const amtEl=document.getElementById('famt-'+id);
+  const noteEl=document.getElementById('fnote-'+id);
+  if(amtEl) m.paidAmount=parseInt(amtEl.value)||curSeason().fee;
+  if(noteEl) m.pNote=noteEl.value;
   m.paid=true;const d=new Date();m.pdate=`${d.getMonth()+1}/${d.getDate()}`;
   renderFees(curFilter());
   showSaving(); await saveMember(S.currentSeasonId, m); hideSaving();
@@ -1659,6 +1716,7 @@ window.setRefundMode=setRefundMode; window.openSessionDetail=openSessionDetail;
 window.updateGuestName=updateGuestName; window.updateGuestGender=updateGuestGender;
 window.saveMemberEdit=saveMemberEdit; window.memberRow=memberRow;
 window.addVenue=addVenue; window.deleteVenue=deleteVenue; window.renderVenueList=renderVenueList;
+window.toggleAllImport=function(c){document.querySelectorAll('#mb input[type=checkbox]').forEach(cb=>cb.checked=c);};
 window.renderLedger=renderLedger; window.prevMonth=prevMonth; window.nextMonth=nextMonth; window.filterLedger=filterLedger;
 window.renderReport=renderReport; window.renderReportSeasonSel=renderReportSeasonSel; window.selectReportSeason=selectReportSeason;
 
