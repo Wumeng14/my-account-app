@@ -173,15 +173,15 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
   <div class="sa">
     <div class="hero">
       <div class="hl">本月可用結餘</div>
-      <div class="ha">NT$ 12,450</div>
-      <div class="hs"><span>↑ 收入 28,000</span><span>↓ 支出 15,550</span></div>
-      <div class="hi">另有投資投入 8,000（股票 5,000 ・ ETF 3,000）</div>
+      <div class="ha">NT$ 0</div>
+      <div class="hs"><span>↑ 收入 0</span><span>↓ 支出 0</span></div>
+      <div class="hi">尚無投資紀錄</div>
     </div>
     <div class="mg">
-      <div class="mc"><div class="ml">本月支出</div><div class="mv">15,550</div><div class="ms">↑ 比上月多 12%</div></div>
-      <div class="mc"><div class="ml">本月收入</div><div class="mv">28,000</div><div class="ms">薪水 + 其他</div></div>
-      <div class="mc"><div class="ml">投資投入</div><div class="mv" style="color:var(--pu)">8,000</div><div class="ms">股票+ETF</div></div>
-      <div class="mc"><div class="ml">總資產移動</div><div class="mv">20,450</div><div class="ms">結餘＋投資</div></div>
+      <div class="mc"><div class="ml">本月支出</div><div class="mv">0</div><div class="ms">—</div></div>
+      <div class="mc"><div class="ml">本月收入</div><div class="mv">0</div><div class="ms">—</div></div>
+      <div class="mc"><div class="ml">投資投入</div><div class="mv" style="color:var(--pu)">0</div><div class="ms">—</div></div>
+      <div class="mc"><div class="ml">總資產移動</div><div class="mv">0</div><div class="ms">—</div></div>
     </div>
     <div class="st">快速操作</div>
     <div class="qg">
@@ -191,25 +191,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
       <div class="qb" onclick="goPage('page-vb')"><div class="qi" style="background:#F5EDE3">🏐</div><span class="ql">排球管理</span></div>
     </div>
     <div class="st">排球本季進度</div>
-    <div class="card" onclick="goPage('page-vb')" style="cursor:pointer">
-      <div class="cb">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-          <div><div style="font-size:14px;font-weight:500" id="home-season-name">2025 上半季</div><div style="font-size:10px;color:var(--t3);margin-top:2px" id="home-season-date">4/1 – 8/31</div></div>
-          <span class="bdg ba">進行中</span>
-        </div>
-        <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--t3)">已繳 / 總人數</span><span style="font-size:13px;font-weight:500">14 / 18 人</span></div>
-        <div class="pb"><div class="pf" style="width:77%"></div></div>
-        <div style="display:flex;gap:14px">
-          <span style="font-size:10px;color:var(--t3)">未繳 <strong style="color:var(--txt)">4人<span class="dot"></span></strong></span>
-          <span style="font-size:10px;color:var(--t3)">待退費 <strong style="color:var(--txt)">2人</strong></span>
-        </div>
+    <div class="card" id="home-vb-card" onclick="goPage('page-vb')" style="cursor:pointer">
+      <div class="cb" id="home-vb-body">
+        <div style="text-align:center;padding:8px 0;color:var(--t3);font-size:13px">尚無排球季資料<br><span style="font-size:11px">點此前往建立</span></div>
       </div>
     </div>
     <div class="st">最近記錄</div>
     <div class="card">
-      <div class="cli"><div class="txi" style="background:var(--gnb)">💰</div><div style="flex:1"><div style="font-size:13px;font-weight:500">薪水</div><div style="font-size:10px;color:var(--t3)">3月5日</div></div><div style="font-size:14px;font-weight:500" class="inc">+28,000</div></div>
-      <div class="cli"><div class="txi" style="background:var(--pub)">📈</div><div style="flex:1"><div style="font-size:13px;font-weight:500">台積電</div><div style="font-size:10px;color:var(--t3)">3月10日 ・ 股票投入</div></div><div style="font-size:14px;font-weight:500" class="inv">－5,000</div></div>
-      <div class="cli"><div class="txi" style="background:var(--al)">🍜</div><div style="flex:1"><div style="font-size:13px;font-weight:500">餐飲</div><div style="font-size:10px;color:var(--t3)">3月22日</div></div><div style="font-size:14px;font-weight:500" class="exp">-350</div></div>
+      <div style="text-align:center;padding:16px;color:var(--t3);font-size:12px">尚無記錄</div>
     </div>
   </div>
 </div>
@@ -224,10 +213,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
     </div>
     <div class="tb"><div class="tab active" onclick="swTab(this)">全部</div><div class="tab" onclick="swTab(this)">支出</div><div class="tab" onclick="swTab(this)">收入</div><div class="tab" onclick="swTab(this)">投資</div></div>
     <div class="card">
-      <div class="cli"><div class="txi" style="background:var(--gnb)">💰</div><div style="flex:1"><div style="font-size:13px;font-weight:500">薪水</div><div style="font-size:10px;color:var(--t3)">3月5日</div></div><div style="font-size:14px;font-weight:500" class="inc">+28,000</div></div>
-      <div class="cli"><div class="txi" style="background:var(--pub)">📈</div><div style="flex:1"><div style="font-size:13px;font-weight:500">台積電</div><div style="font-size:10px;color:var(--t3)">3月10日 ・ 股票</div></div><div style="font-size:14px;font-weight:500" class="inv">－5,000</div></div>
-      <div class="cli"><div class="txi" style="background:var(--al)">🍜</div><div style="flex:1"><div style="font-size:13px;font-weight:500">餐飲</div><div style="font-size:10px;color:var(--t3)">3月22日</div></div><div style="font-size:14px;font-weight:500" class="exp">-350</div></div>
-      <div class="cli"><div class="txi" style="background:var(--amb)">🚌</div><div style="flex:1"><div style="font-size:13px;font-weight:500">交通</div><div style="font-size:10px;color:var(--t3)">3月21日</div></div><div style="font-size:14px;font-weight:500" class="exp">-120</div></div>
+      <div style="text-align:center;padding:16px;color:var(--t3);font-size:12px">尚無記錄</div>
     </div>
   </div>
   <button style="position:fixed;bottom:calc(var(--nav)+16px);right:20px;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;z-index:50" onclick="openM('expense')">＋</button>
@@ -239,15 +225,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
   <div class="sa">
     <div class="ih"><div class="hl">本月投資投入</div><div class="ha">NT$ 8,000</div><div class="hs"><span>股票 5,000</span><span>ETF 3,000</span></div></div>
     <div class="mg">
-      <div class="mc"><div class="ml">本月投入</div><div class="mv" style="color:var(--pu)">8,000</div></div>
-      <div class="mc"><div class="ml">今年累積</div><div class="mv" style="color:var(--pu)">23,000</div></div>
-      <div class="mc"><div class="ml">股票</div><div class="mv">15,000</div></div>
-      <div class="mc"><div class="ml">ETF</div><div class="mv">8,000</div></div>
+      <div class="mc"><div class="ml">本月投入</div><div class="mv" style="color:var(--pu)">0</div></div>
+      <div class="mc"><div class="ml">今年累積</div><div class="mv" style="color:var(--pu)">0</div></div>
+      <div class="mc"><div class="ml">股票</div><div class="mv">0</div></div>
+      <div class="mc"><div class="ml">ETF</div><div class="mv">0</div></div>
     </div>
     <div class="st">投資紀錄</div>
     <div class="card">
-      <div class="cli"><div class="txi" style="background:var(--pub)">📈</div><div style="flex:1"><div style="font-size:13px;font-weight:500">台積電</div><div style="font-size:10px;color:var(--t3)">3月10日 ・ 股票</div></div><div style="font-size:14px;font-weight:500" class="inv">－5,000</div></div>
-      <div class="cli"><div class="txi" style="background:var(--pub)">📈</div><div style="flex:1"><div style="font-size:13px;font-weight:500">0050 ETF</div><div style="font-size:10px;color:var(--t3)">3月12日 ・ ETF</div></div><div style="font-size:14px;font-weight:500" class="inv">－3,000</div></div>
+      <div style="text-align:center;padding:16px;color:var(--t3);font-size:12px">尚無投資記錄</div>
     </div>
   </div>
   <button style="position:fixed;bottom:calc(var(--nav)+16px);right:20px;width:48px;height:48px;border-radius:50%;background:#534AB7;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;z-index:50" onclick="openM('invest')">＋</button>
@@ -453,46 +438,8 @@ const S = {
   expCats:['餐飲','交通','購物','娛樂','醫療','水電','其他'],
   incCats:['薪水','獎金','兼職','投資收益','其他'],
   invCats:['股票','ETF'],
-  currentSeasonId: 1,
-  seasons:[
-    {
-      id:1, name:'2025 上半季', start:'2025/4/1', end:'2025/8/31', status:'active',
-      fee:3000, absentRefund:300,
-      members:[
-        {id:1,name:'王明',gender:'m',paid:true,method:'bank',pdate:'3/10',by:'',bank:'34521',note:'',refund:0,rs:''},
-        {id:2,name:'李靜',gender:'f',paid:false,method:'',pdate:'',by:'',bank:'',note:'',refund:300,rs:'pending'},
-        {id:3,name:'陳大偉',gender:'m',paid:true,method:'bank',pdate:'3/8',by:'王明',bank:'21089',note:'',refund:0,rs:''},
-        {id:4,name:'林小芬',gender:'f',paid:true,method:'cash',pdate:'3/5',by:'',bank:'',note:'',refund:300,rs:'pending'},
-        {id:5,name:'黃俊傑',gender:'m',paid:false,method:'',pdate:'',by:'',bank:'67342',note:'',refund:0,rs:''},
-        {id:6,name:'吳雅婷',gender:'f',paid:true,method:'line',pdate:'3/12',by:'',bank:'',note:'',refund:0,rs:''},
-        {id:7,name:'陳怡君',gender:'f',paid:false,method:'',pdate:'',by:'',bank:'55210',note:'',refund:0,rs:''},
-        {id:8,name:'張建志',gender:'m',paid:true,method:'cash',pdate:'3/5',by:'',bank:'',note:'',refund:0,rs:''},
-      ],
-      sessions:[
-        {id:1,date:'3月22日（六）',status:'normal',absent:[],guests:[
-          {id:101,name:'張浩然',gender:'m',paid:true,method:'cash',pdate:'3/22',by:'',bank:''},
-          {id:102,name:'劉心怡',gender:'f',paid:false,method:'',pdate:'',by:'',bank:''},
-        ]},
-        {id:2,date:'3月15日（六）',status:'cancel',absent:[],guests:[],refundMode:'active'},
-        {id:3,date:'3月8日（六）',status:'normal',absent:[4],guests:[
-          {id:103,name:'周志明',gender:'m',paid:true,method:'line',pdate:'3/8',by:'',bank:''},
-        ]},
-      ]
-    },
-    {
-      id:2, name:'2024 下半季', start:'2024/9/1', end:'2025/1/31', status:'ended',
-      fee:3000, absentRefund:300,
-      members:[
-        {id:1,name:'王明',gender:'m',paid:true,method:'bank',pdate:'9/5',by:'',bank:'34521',note:'',refund:0,rs:''},
-        {id:2,name:'李靜',gender:'f',paid:true,method:'cash',pdate:'9/6',by:'',bank:'',note:'',refund:0,rs:''},
-        {id:3,name:'陳大偉',gender:'m',paid:true,method:'bank',pdate:'9/3',by:'',bank:'21089',note:'',refund:0,rs:''},
-      ],
-      sessions:[
-        {id:10,date:'1月25日（六）',status:'normal',absent:[],guests:[]},
-        {id:11,date:'1月18日（六）',status:'normal',absent:[1],guests:[]},
-      ]
-    }
-  ]
+  currentSeasonId: null,
+  seasons:[]
 };
 
 function curSeason(){ return S.seasons.find(s=>s.id===S.currentSeasonId) }
