@@ -261,15 +261,24 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
       <div class="fnr" onclick="goSub('page-sessions')"><div class="fni">📅</div><div style="flex:1"><div style="font-size:13px;font-weight:500">打球紀錄</div><div style="font-size:10px;color:var(--t3);margin-top:1px">場次出席、請假、臨打</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
       <div class="fnr" onclick="goSub('page-fees')"><div class="fni">💰</div><div style="flex:1"><div style="font-size:13px;font-weight:500">收退費作業</div><div style="font-size:10px;color:var(--t3);margin-top:1px">標記繳費、代收、退費處理</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
       <div class="fnr" onclick="goSub('page-unpaid')"><div class="fni">📋</div><div style="flex:1"><div style="font-size:13px;font-weight:500">未繳清單</div><div style="font-size:10px;color:var(--t3);margin-top:1px" id="unpaid-desc">—</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
+      <div class="fnr" onclick="goSub('page-venues')"><div class="fni">🏟</div><div style="flex:1"><div style="font-size:13px;font-weight:500">包場管理</div><div style="font-size:10px;color:var(--t3);margin-top:1px" id="venue-count-desc">包場記錄</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-      <div class="st" style="margin:0">包場資訊</div>
-      <span style="font-size:12px;color:var(--accent);cursor:pointer" onclick="openM('venue')">＋ 新增包場</span>
-    </div>
-    <div id="venue-list" style="margin-bottom:10px"></div>
     <div class="st">最近場次</div>
     <div class="card" id="session-list-home"></div>
   </div>
+</div>
+
+
+<!-- ══ 包場管理 ══ -->
+<div class="page" id="page-venues">
+  <div class="hdr"><div class="hbk" onclick="goBack()">‹ 返回</div><div class="htl">包場管理</div><div class="hac" onclick="openVenueModal()">＋ 新增</div></div>
+  <div class="sa" id="venue-main-body"></div>
+</div>
+
+<!-- ══ 包場詳細 ══ -->
+<div class="page" id="page-venue-detail">
+  <div class="hdr"><div class="hbk" onclick="goBack()">‹ 返回</div><div class="htl" id="venue-detail-title">包場詳細</div><div></div></div>
+  <div class="sa" id="venue-detail-body"></div>
 </div>
 
 <!-- ══ 成員管理 ══ -->
@@ -473,6 +482,7 @@ function goSub(id){
   if(id==='page-members') renderMembers();
   if(id==='page-fees'){renderFees('all');document.getElementById('fees-count').textContent=curSeason().members.length+'人'}
   if(id==='page-unpaid') renderUnpaid();
+  if(id==='page-venues') renderVenues();
 }
 function goBack(){
   stack.pop();
@@ -1032,13 +1042,13 @@ const modals={
     <div class="fl">結束日期</div><input class="fi" id="sn-end" type="date">
     <div class="fl">固定打球星期</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="weekday-sel">
-      <div class="ro" onclick="toggleRO(this)" style="flex:none">週一</div>
-      <div class="ro" onclick="toggleRO(this)" style="flex:none">週二</div>
-      <div class="ro" onclick="toggleRO(this)" style="flex:none">週三</div>
-      <div class="ro" onclick="toggleRO(this)" style="flex:none">週四</div>
-      <div class="ro" onclick="toggleRO(this)" style="flex:none">週五</div>
-      <div class="ro sel" onclick="toggleRO(this)" style="flex:none">週六</div>
-      <div class="ro" onclick="toggleRO(this)" style="flex:none">週日</div>
+      <div class="ro" onclick="toggleWD(this)" style="flex:none">週一</div>
+      <div class="ro" onclick="toggleWD(this)" style="flex:none">週二</div>
+      <div class="ro" onclick="toggleWD(this)" style="flex:none">週三</div>
+      <div class="ro" onclick="toggleWD(this)" style="flex:none">週四</div>
+      <div class="ro" onclick="toggleWD(this)" style="flex:none">週五</div>
+      <div class="ro sel" onclick="toggleWD(this)" style="flex:none">週六</div>
+      <div class="ro" onclick="toggleWD(this)" style="flex:none">週日</div>
     </div>
     <div class="fl">季費金額</div><input class="fi" id="sn-fee" type="number" placeholder="NT$ 0">
     <div class="fl">請假退費金額（固定）</div><input class="fi" id="sn-refund" type="number" placeholder="例：300">
@@ -1247,6 +1257,219 @@ function renderVenueList(){
   </div>`).join('')}</div>`;
 }
 // ── 讓所有函式全域可用（module script 需要）──
+
+
+// ═══ 包場管理 ═══
+let _curVenueId = null;
+
+function getVenues(){ return curSeason()?curSeason().venues||[]:[] }
+function getVenue(vid){ return getVenues().find(v=>v.id==vid||v.id===String(vid)) }
+
+async function saveVenuesToFirebase(){
+  const s=curSeason(); if(!s) return;
+  const {members,sessions,...data}=s;
+  await saveSeason(S.currentSeasonId,{...data,venues:s.venues||[]});
+}
+
+function renderVenues(){
+  const el=document.getElementById('venue-main-body'); if(!el) return;
+  const venues=getVenues();
+  if(venues.length===0){
+    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--t3);font-size:13px">尚無包場記錄<br><span style="font-size:11px">點右上角新增</span></div>';
+    return;
+  }
+  el.innerHTML=venues.map(v=>{
+    const paid=v.members?v.members.filter(m=>m.paid).length:0;
+    const total=v.members?v.members.length:0;
+    return `<div class="card" style="cursor:pointer;margin-bottom:8px" onclick="openVenueDetail('${v.id}')">
+      <div class="cb">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div><div style="font-size:14px;font-weight:500">${v.name}</div><div style="font-size:10px;color:var(--t3);margin-top:2px">${v.date||'—'}</div></div>
+          <div style="text-align:right"><div style="font-size:14px;font-weight:500;color:var(--accent)">NT$${(v.cost||0).toLocaleString()}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">每人 NT$${v.perPerson||0}</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--t3)">已繳 ${paid} / ${total} 人</span>
+          <span style="font-size:10px;color:var(--t3)">›</span>
+        </div>
+        ${total>0?`<div class="pb"><div class="pf" style="width:${Math.round(paid/total*100)}%"></div></div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  const dc=document.getElementById('venue-count-desc');
+  if(dc) dc.textContent=`共 ${venues.length} 筆包場記錄`;
+}
+
+function openVenueDetail(vid){
+  _curVenueId=String(vid);
+  stack.push('page-venue-detail');
+  show('page-venue-detail');
+  renderVenueDetail();
+}
+
+function renderVenueDetail(){
+  const v=getVenue(_curVenueId); if(!v) return;
+  document.getElementById('venue-detail-title').textContent=v.name;
+  if(!v.members) v.members=[];
+  const paid=v.members.filter(m=>m.paid).length;
+  const unpaid=v.members.filter(m=>!m.paid).length;
+  let html=`
+    <div class="card" style="margin-bottom:10px"><div class="cb">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <div><div style="font-size:15px;font-weight:500">${v.name}</div><div style="font-size:11px;color:var(--t3);margin-top:2px">${v.date||'—'}</div></div>
+        <div style="text-align:right"><div style="font-size:15px;font-weight:500;color:var(--accent)">NT$${(v.cost||0).toLocaleString()}</div><div style="font-size:11px;color:var(--t3)">每人 NT$${v.perPerson||0}</div></div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--t3)">
+        <span>參與 <strong style="color:var(--txt)">${v.members.length}人</strong></span>
+        <span>已繳 <strong style="color:var(--gn)">${paid}人</strong></span>
+        <span>未繳 <strong style="color:var(--rd)">${unpaid}人</strong></span>
+      </div>
+    </div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+      <div class="st" style="margin:0">參與成員</div>
+      <span style="font-size:12px;color:var(--accent);cursor:pointer" onclick="openM('venueAddMember')">＋ 新增成員</span>
+    </div>
+    <div class="card" style="margin-bottom:10px">`;
+  if(v.members.length===0){
+    html+='<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">尚無成員</div>';
+  } else {
+    v.members.forEach(m=>{
+      const avC=m.gender==='f'?'avc':'ava';
+      const paidBdg=m.paid?'<span class="bdg bg">已繳</span>':'<span class="bdg br">未繳</span>';
+      const ml=m.method==='line'?'LinePay':m.method==='bank'?'轉帳':m.method==='cash'?'現金':'';
+      const pInfo=m.paid?`<div style="font-size:10px;color:var(--t3);margin-top:1px">${ml} ${m.pdate||''}</div>`:'';
+      html+=`<div class="fc" id="vfc-${m.id}">
+        <div class="fch" onclick="document.getElementById('vfb-${m.id}').classList.toggle('hidden')">
+          <div class="av ${avC}">${m.name.slice(0,2)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:500">${m.name}</span>
+              ${m.gender==='m'?'<span class="gbd gm">♂ 男</span>':'<span class="gbd gf">♀ 女</span>'}
+              ${paidBdg}
+            </div>
+            ${pInfo}
+          </div>
+          <div style="font-size:9px;color:var(--t3);flex-shrink:0">${m.paid?'點選修改':'點選標記'}</div>
+        </div>
+        <div class="fcb hidden" id="vfb-${m.id}" style="background:var(--bg2);border-top:1px solid var(--border);padding:13px 14px">`;
+      if(!m.paid){
+        const lS=m.method==='line'?'sl':'',bS=m.method==='bank'?'sb':'',cS=m.method==='cash'?'sc':'';
+        html+=`<div class="fl">繳費方式</div>
+          <div class="pr" id="vpr-${m.id}">
+            <div class="pbb ${lS}" onclick="selVenueMMethod('${_curVenueId}','${m.id}','line',this)">LinePay</div>
+            <div class="pbb ${bS}" onclick="selVenueMMethod('${_curVenueId}','${m.id}','bank',this)">轉帳</div>
+            <div class="pbb ${cS}" onclick="selVenueMMethod('${_curVenueId}','${m.id}','cash',this)">現金</div>
+          </div>
+          <div id="vbank-${m.id}"></div>
+          <button class="bpb" style="margin-top:10px" onclick="markVenueMPaid('${_curVenueId}','${m.id}')">✓ 確認已繳</button>
+          <button class="bpb" style="background:var(--rdb);color:var(--rd);border:1px solid var(--rdbd);margin-top:6px" onclick="deleteVenueM('${_curVenueId}','${m.id}')">移除成員</button>`;
+      } else {
+        const lS=m.method==='line'?'sl':'',bS=m.method==='bank'?'sb':'',cS=m.method==='cash'?'sc':'';
+        html+=`<div class="fl">修改繳費方式</div>
+          <div class="pr" id="vpr-${m.id}">
+            <div class="pbb ${lS}" onclick="selVenueMMethod('${_curVenueId}','${m.id}','line',this)">LinePay</div>
+            <div class="pbb ${bS}" onclick="selVenueMMethod('${_curVenueId}','${m.id}','bank',this)">轉帳</div>
+            <div class="pbb ${cS}" onclick="selVenueMMethod('${_curVenueId}','${m.id}','cash',this)">現金</div>
+          </div>
+          <button class="bpb" style="background:var(--rdb);color:var(--rd);border:1px solid var(--rdbd);margin-top:10px" onclick="unmarkVenueMPaid('${_curVenueId}','${m.id}')">取消已繳</button>`;
+      }
+      html+=`</div></div>`;
+    });
+  }
+  html+='</div>';
+  document.getElementById('venue-detail-body').innerHTML=html;
+}
+
+function selVenueMMethod(vid,mid,method,el){
+  const v=getVenue(vid); if(!v) return;
+  const m=v.members.find(x=>x.id===mid); if(!m) return;
+  m.method=method;
+  document.getElementById('vpr-'+mid).querySelectorAll('.pbb').forEach(b=>b.className='pbb');
+  el.classList.add(method==='line'?'sl':method==='bank'?'sb':'sc');
+  const bi=document.getElementById('vbank-'+mid);
+  if(bi){
+    if(method==='bank'&&!bi.querySelector('input')){
+      const inp=document.createElement('input');inp.className='fi';inp.style.cssText='margin:8px 0 0;padding:8px 12px;font-size:13px';
+      inp.placeholder='轉帳帳號後五碼';inp.maxLength=5;inp.oninput=e=>{m.bank=e.target.value};bi.appendChild(inp);
+    } else if(method!=='bank'){bi.innerHTML='';}
+  }
+}
+async function markVenueMPaid(vid,mid){
+  const v=getVenue(vid); if(!v) return;
+  const m=v.members.find(x=>x.id===mid); if(!m) return;
+  if(!m.method){alert('請先選擇繳費方式');return;}
+  m.paid=true; const d=new Date(); m.pdate=`${d.getMonth()+1}/${d.getDate()}`;
+  renderVenueDetail();
+  showSaving(); await saveVenuesToFirebase(); hideSaving();
+}
+async function unmarkVenueMPaid(vid,mid){
+  const v=getVenue(vid); if(!v) return;
+  const m=v.members.find(x=>x.id===mid); if(!m) return;
+  m.paid=false; m.method=''; m.pdate='';
+  renderVenueDetail();
+  showSaving(); await saveVenuesToFirebase(); hideSaving();
+}
+async function deleteVenueM(vid,mid){
+  if(!confirm('確定移除此成員？')) return;
+  const v=getVenue(vid); if(!v) return;
+  v.members=v.members.filter(x=>x.id!==mid);
+  renderVenueDetail();
+  showSaving(); await saveVenuesToFirebase(); hideSaving();
+}
+
+window.toggleWD=function(el){
+  document.querySelectorAll('#weekday-sel .ro').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+};
+
+window.openVenueModal=function(){
+  document.getElementById('mt').textContent='新增包場';
+  document.getElementById('mb').innerHTML=`
+    <div class="fl">包場日期</div><input class="fi" id="vn-date" type="date" value="${td()}">
+    <div class="fl">場地名稱</div><input class="fi" id="vn-name" placeholder="例：○○體育館">
+    <div class="fl">包場費用</div><input class="fi" id="vn-cost" type="number" placeholder="NT$ 0">
+    <div class="fl">每人收費</div><input class="fi" id="vn-per" type="number" placeholder="NT$ 0">
+    <button class="bpb" onclick="window.addVenueNew()">新增</button><button class="bcb" onclick="closeM()">取消</button>`;
+  document.getElementById('mo').classList.add('open');
+};
+
+window.addVenueNew=async function(){
+  const date=document.getElementById('vn-date').value;
+  const name=document.getElementById('vn-name').value.trim();
+  const cost=parseInt(document.getElementById('vn-cost').value)||0;
+  const perPerson=parseInt(document.getElementById('vn-per').value)||0;
+  if(!name){alert('請輸入場地名稱');return;}
+  const s=curSeason(); if(!s) return;
+  if(!s.venues) s.venues=[];
+  const v={id:String(Date.now()),date,name,cost,perPerson,members:[]};
+  s.venues.unshift(v);
+  closeM(); renderVenues();
+  showSaving(); await saveVenuesToFirebase(); hideSaving();
+};
+
+window.openVenueDetail=openVenueDetail;
+window.renderVenueDetail=renderVenueDetail;
+window.selVenueMMethod=selVenueMMethod;
+window.markVenueMPaid=markVenueMPaid;
+window.unmarkVenueMPaid=unmarkVenueMPaid;
+window.deleteVenueM=deleteVenueM;
+
+// 包場新增成員 modal
+modals.venueAddMember={t:'新增包場成員',b:()=>`
+  <div class="fl">姓名</div><input class="fi" id="vm-name" placeholder="姓名">
+  <div class="fl">性別</div>${genderSel('vm')}
+  <button class="bpb" onclick="window.addVenueMember()">新增</button><button class="bcb" onclick="closeM()">取消</button>`};
+
+window.addVenueMember=async function(){
+  const name=document.getElementById('vm-name').value.trim();
+  const gEl=document.querySelector('#gs-vm .sel-m, #gs-vm .sel-f');
+  if(!name){alert('請輸入姓名');return;}
+  const gender=gEl?(gEl.classList.contains('sel-m')?'m':'f'):'m';
+  const v=getVenue(_curVenueId); if(!v) return;
+  if(!v.members) v.members=[];
+  v.members.push({id:String(Date.now()),name,gender,paid:false,method:'',pdate:'',bank:''});
+  closeM(); renderVenueDetail();
+  showSaving(); await saveVenuesToFirebase(); hideSaving();
+};
 
 // ═══ 報表 ═══
 function renderReport(tab){
