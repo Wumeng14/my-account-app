@@ -223,7 +223,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 <div class="page" id="page-invest">
   <div class="hdr"><div></div><div class="htl" style="font-family:'Noto Serif TC',serif">投資</div><div></div></div>
   <div class="sa">
-    <div class="ih"><div class="hl">本月投資投入</div><div class="ha">NT$ 8,000</div><div class="hs"><span>股票 5,000</span><span>ETF 3,000</span></div></div>
+    <div class="ih"><div class="hl">本月投資投入</div><div class="ha" id="invest-total">NT$ 0</div><div class="hs" id="invest-breakdown"><span>尚無記錄</span></div></div>
     <div class="mg">
       <div class="mc"><div class="ml">本月投入</div><div class="mv" style="color:var(--pu)">0</div></div>
       <div class="mc"><div class="ml">今年累積</div><div class="mv" style="color:var(--pu)">0</div></div>
@@ -246,8 +246,8 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
     <div class="season-sel-wrap" id="season-sel-wrap">
       <div class="season-sel-btn" id="season-sel-btn" onclick="toggleSeasonDD()">
         <div>
-          <div class="season-sel-label" id="sel-season-name">2025 上半季</div>
-          <div class="season-sel-sub" id="sel-season-date">2025/4/1 – 2025/8/31 ・ 進行中</div>
+          <div class="season-sel-label" id="sel-season-name">請選擇季</div>
+          <div class="season-sel-sub" id="sel-season-date">尚無資料，請先新增季</div>
         </div>
         <div class="season-sel-arrow">▾</div>
       </div>
@@ -260,7 +260,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
       <div class="fnr" onclick="goSub('page-members')"><div class="fni">👥</div><div style="flex:1"><div style="font-size:13px;font-weight:500">成員管理</div><div style="font-size:10px;color:var(--t3);margin-top:1px">新增、編輯成員與繳費狀態</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
       <div class="fnr" onclick="goSub('page-sessions')"><div class="fni">📅</div><div style="flex:1"><div style="font-size:13px;font-weight:500">打球紀錄</div><div style="font-size:10px;color:var(--t3);margin-top:1px">場次出席、請假、臨打</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
       <div class="fnr" onclick="goSub('page-fees')"><div class="fni">💰</div><div style="flex:1"><div style="font-size:13px;font-weight:500">收退費作業</div><div style="font-size:10px;color:var(--t3);margin-top:1px">標記繳費、代收、退費處理</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
-      <div class="fnr" onclick="goSub('page-unpaid')"><div class="fni">📋</div><div style="flex:1"><div style="font-size:13px;font-weight:500">未繳清單</div><div style="font-size:10px;color:var(--t3);margin-top:1px" id="unpaid-desc">4人未繳</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
+      <div class="fnr" onclick="goSub('page-unpaid')"><div class="fni">📋</div><div style="flex:1"><div style="font-size:13px;font-weight:500">未繳清單</div><div style="font-size:10px;color:var(--t3);margin-top:1px" id="unpaid-desc">—</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
     </div>
     <div class="st">最近場次</div>
     <div class="card" id="session-list-home"></div>
@@ -504,22 +504,47 @@ function selectSeason(id){
 // ═══ 排球管理主頁 ═══
 function renderVbPage(){
   const s=curSeason();
+  if(!s){
+    document.getElementById('sel-season-name').textContent='尚無季資料';
+    document.getElementById('sel-season-date').textContent='請點右上角新增季';
+    document.getElementById('vb-metrics').innerHTML='';
+    const sl=document.getElementById('session-list-home');
+    if(sl) sl.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">尚無場次</div>';
+    // home vb card
+    const hb=document.getElementById('home-vb-body');
+    if(hb) hb.innerHTML='<div style="text-align:center;padding:8px 0;color:var(--t3);font-size:13px">尚無排球季資料<br><span style="font-size:11px">點此前往建立</span></div>';
+    return;
+  }
   // 更新下拉顯示
   document.getElementById('sel-season-name').textContent=s.name;
   document.getElementById('sel-season-date').textContent=`${s.start} – ${s.end} ・ ${s.status==='active'?'進行中':'已結束'}`;
   // metrics
-  const paid=s.members.filter(m=>m.paid).length;
-  const unpaid=s.members.filter(m=>!m.paid).length;
-  const refundPending=s.members.filter(m=>m.refund>0&&m.rs==='pending').length;
-  const totalCollected=s.members.filter(m=>m.paid).length*s.fee;
+  const activeMembers=s.members.filter(m=>!m.inactive);
+  const paid=activeMembers.filter(m=>m.paid).length;
+  const unpaid=activeMembers.filter(m=>!m.paid).length;
+  const refundPending=activeMembers.filter(m=>m.refund>0&&m.rs==='pending').length;
+  const totalCollected=paid*s.fee;
   document.getElementById('vb-metrics').innerHTML=`
-    <div class="mc"><div class="ml">本季人數</div><div class="mv">${s.members.length}人</div></div>
+    <div class="mc"><div class="ml">本季人數</div><div class="mv">${activeMembers.length}人</div></div>
     <div class="mc"><div class="ml">已收金額</div><div class="mv">${totalCollected.toLocaleString()}</div></div>
     <div class="mc"><div class="ml">未繳</div><div class="mv" style="color:var(--rd)">${unpaid}人</div></div>
     <div class="mc"><div class="ml">待退費</div><div class="mv" style="color:var(--am)">${refundPending}人</div></div>`;
   // unpaid hint
   const unpaidEl=document.getElementById('unpaid-desc');
   if(unpaidEl) unpaidEl.innerHTML=unpaid>0?`${unpaid}人未繳 <span class="dot"></span>`:'全部已繳';
+  // home vb card
+  const hb=document.getElementById('home-vb-body');
+  if(hb) hb.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div><div style="font-size:14px;font-weight:500">${s.name}</div><div style="font-size:10px;color:var(--t3);margin-top:2px">${s.start} – ${s.end}</div></div>
+      <span class="bdg ${s.status==='active'?'ba':'bgr'}">${s.status==='active'?'進行中':'已結束'}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--t3)">已繳 / 總人數</span><span style="font-size:13px;font-weight:500">${paid} / ${activeMembers.length} 人</span></div>
+    <div class="pb"><div class="pf" style="width:${activeMembers.length?Math.round(paid/activeMembers.length*100):0}%"></div></div>
+    <div style="display:flex;gap:14px">
+      <span style="font-size:10px;color:var(--t3)">未繳 <strong style="color:var(--txt)">${unpaid}人${unpaid>0?'<span class="dot"></span>':''}</strong></span>
+      <span style="font-size:10px;color:var(--t3)">待退費 <strong style="color:var(--txt)">${refundPending}人</strong></span>
+    </div>`;
   // sessions
   renderSessionsHome();
 }
@@ -527,7 +552,9 @@ function renderVbPage(){
 // ═══ 計算成員請假次數（當季所有場次）═══
 function getMemberAbsentInfo(memberId){
   const s=curSeason();
-  const count=s.sessions.filter(sess=>sess.status==='normal'&&sess.absent.includes(memberId)).length;
+  if(!s) return {count:0,totalRefund:0};
+  const strId=String(memberId);
+  const count=s.sessions.filter(sess=>sess.status==='normal'&&sess.absent.map(String).includes(strId)).length;
   const totalRefund=count*(s.absentRefund||0);
   return {count, totalRefund};
 }
@@ -539,29 +566,40 @@ function gBdg(g){return g==='m'?'<span class="gbd gm">♂ 男</span>':'<span cla
 function renderMembers(){
   const s=curSeason();
   document.getElementById('member-season-label').textContent=s.name+' · 季打成員';
-  document.getElementById('member-list').innerHTML=s.members.map(m=>{
-    const av=avCls(m);
-    const methodLabel=m.method==='line'?'LinePay':m.method==='bank'?'轉帳':m.method==='cash'?'現金':'尚未繳費';
-    const paidInfo=m.paid?`繳費方式：${methodLabel}　時間：${m.pdate}${m.by?' ・ 代收：'+m.by:''}`:'尚未繳費';
-    const statusBdg=m.paid?(m.refund>0&&m.rs==='pending'?`<span class="bdg ba">待退費</span>`:`<span class="bdg bg">已繳</span>`):`<span class="bdg br">未繳</span>`;
-    const {count, totalRefund}=getMemberAbsentInfo(m.id);
-    const absentHtml=count>0
-      ?`<div class="absent-tag">請假 ${count} 次・待退費 NT$${totalRefund.toLocaleString()}</div>`
-      :'';
-    return `<div class="cli">
-      <div class="av ${av}">${m.name.slice(0,2)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
-          <span style="font-size:13px;font-weight:500">${m.name}</span>
-          ${gBdg(m.gender)}
-          ${statusBdg}
-        </div>
-        <div style="font-size:10px;color:var(--t3)">${paidInfo}</div>
-        ${m.note?`<div style="font-size:10px;color:var(--t3);margin-top:1px">備註：${m.note}</div>`:''}
-        ${absentHtml}
+  const active=s.members.filter(m=>!m.inactive);
+  const inactive=s.members.filter(m=>m.inactive);
+  let html='';
+  if(active.length>0) html+=active.map(m=>memberRow(m)).join('');
+  if(inactive.length>0){
+    html+=`<div style="padding:8px 15px 4px;font-size:10px;color:var(--t3);letter-spacing:.5px;border-top:1px solid var(--border);margin-top:4px">已退出成員</div>`;
+    html+=inactive.map(m=>memberRow(m)).join('');
+  }
+  document.getElementById('member-list').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">尚無成員，點右上角新增</div>`;
+}
+
+function memberRow(m){
+  const av=avCls(m);
+  const methodLabel=m.method==='line'?'LinePay':m.method==='bank'?'轉帳':m.method==='cash'?'現金':'尚未繳費';
+  const paidInfo=m.paid?`繳費方式：${methodLabel}　時間：${m.pdate}${m.by?' ・ 代收：'+m.by:''}`:'尚未繳費';
+  const statusBdg=m.inactive
+    ?`<span class="bdg bgr">已退出</span>`
+    :m.paid?(m.refund>0&&m.rs==='pending'?`<span class="bdg ba">待退費</span>`:`<span class="bdg bg">已繳</span>`):`<span class="bdg br">未繳</span>`;
+  const {count,totalRefund}=getMemberAbsentInfo(m.id);
+  const absentHtml=count>0?`<div class="absent-tag">請假 ${count} 次・待退費 NT$${totalRefund.toLocaleString()}</div>`:'';
+  return `<div class="cli" style="cursor:pointer;${m.inactive?'opacity:.6':''}" onclick="openM('editMember','${m.id}')">
+    <div class="av ${av}">${m.name.slice(0,2)}</div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+        <span style="font-size:13px;font-weight:500">${m.name}</span>
+        ${gBdg(m.gender)}
+        ${statusBdg}
       </div>
-    </div>`;
-  }).join('');
+      <div style="font-size:10px;color:var(--t3)">${m.inactive?'已退出，保留歷史記錄':paidInfo}</div>
+      ${m.note&&!m.inactive?`<div style="font-size:10px;color:var(--t3);margin-top:1px">備註：${m.note}</div>`:''}
+      ${absentHtml}
+    </div>
+    <div style="font-size:12px;color:var(--t3);flex-shrink:0">✎</div>
+  </div>`;
 }
 
 // ═══ 場次列表 ═══
@@ -590,16 +628,28 @@ function sessionCard(s, onclick){
 
 function renderSessionsHome(){
   const s=curSeason();
-  document.getElementById('session-list-home').innerHTML=s.sessions.map(sess=>sessionCard(sess,`openSessionDetail(${sess.id})`)).join('');
+  const el=document.getElementById('session-list-home');
+  if(!el) return;
+  if(!s||!s.sessions||s.sessions.length===0){
+    el.innerHTML='<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">尚無場次紀錄</div>';
+    return;
+  }
+  el.innerHTML=s.sessions.map(sess=>sessionCard(sess,`openSessionDetail('${sess.id}')`)).join('');
 }
 function renderSessions(){
   const s=curSeason();
-  document.getElementById('sessions-list').innerHTML=s.sessions.map(sess=>sessionCard(sess,`openSessionDetail(${sess.id})`)).join('');
+  const el=document.getElementById('sessions-list');
+  if(!s||!s.sessions||s.sessions.length===0){
+    el.innerHTML='<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">尚無場次，點右上角新增</div>';
+    return;
+  }
+  el.innerHTML=s.sessions.map(sess=>sessionCard(sess,`openSessionDetail('${sess.id}')`)).join('');
 }
 
 // ═══ 場次詳細 ═══
 function openSessionDetail(sid){
-  const s=curSeason().sessions.find(x=>x.id===sid);
+  const s=curSeason().sessions.find(x=>x.id==sid||x.id===String(sid));
+  if(!s) return;
   stack.push('page-session-detail');
   show('page-session-detail');
   document.getElementById('session-detail-title').textContent=s.date;
@@ -965,15 +1015,54 @@ const modals={
   session:{t:'新增場次',b:()=>`<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">狀態</div><div class="ro-w" style="margin:0 0 12px"><div class="ro sel" onclick="toggleRO(this)">正常</div><div class="ro" onclick="toggleRO(this)">取消</div></div><div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="addSession()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
   season:{t:'新增季',b:()=>`<div class="fl">季名稱</div><input class="fi" id="sn-name" placeholder="例：2025 下半季"><div class="fl">開始日期</div><input class="fi" id="sn-start" type="date"><div class="fl">結束日期</div><input class="fi" id="sn-end" type="date"><div class="fl">季費金額</div><input class="fi" id="sn-fee" type="number" placeholder="NT$ 0"><div class="fl">請假退費金額（固定）</div><input class="fi" id="sn-refund" type="number" placeholder="例：300"><button class="bpb" onclick="addSeason()">建立</button><button class="bcb" onclick="closeM()">取消</button>`},
   guest:{t:'新增臨打',b:()=>`<div class="fl">姓名</div><input class="fi" id="g-name" placeholder="姓名"><div class="fl">性別</div>${genderSel('guest')}<button class="bpb" onclick="addGuest()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
+  editMember:{t:'編輯成員',b:(mid)=>{
+    const m=curSeason().members.find(x=>x.id==mid||x.id===String(mid));
+    if(!m) return '';
+    const inactiveSel=m.inactive?'sel':'';
+    const activeSel=!m.inactive?'sel':'';
+    return `<div class="fl">姓名</div>
+    <input class="fi" id="em-name" value="${m.name}" placeholder="姓名">
+    <div class="fl">性別</div>
+    <div class="gs" id="gs-edit">
+      <div class="gb-opt${m.gender==='m'?' sel-m':''}" onclick="selG('edit','m',this)">♂ 男</div>
+      <div class="gb-opt${m.gender==='f'?' sel-f':''}" onclick="selG('edit','f',this)">♀ 女</div>
+    </div>
+    <div class="fl">備註（選填）</div>
+    <input class="fi" id="em-note" value="${m.note||''}" placeholder="備註">
+    <div class="fl">狀態</div>
+    <div class="ro-w" style="margin:0 0 16px">
+      <div class="ro ${activeSel}" onclick="toggleRO(this)">正常參與</div>
+      <div class="ro ${inactiveSel}" onclick="toggleRO(this)">已退出</div>
+    </div>
+    <button class="bpb" onclick="saveMemberEdit('${m.id}')">儲存</button>
+    <button class="bcb" onclick="closeM()">取消</button>`;
+  }},
 };
 
 function openM(type,sid){
   if(type==='guest') _gSid=sid;
   const d=modals[type];
   document.getElementById('mt').textContent=d.t;
-  document.getElementById('mb').innerHTML=d.b();
+  document.getElementById('mb').innerHTML=(type==='editMember')?d.b(sid):d.b();
   document.getElementById('mo').classList.add('open');
 }
+
+function saveMemberEdit(mid){
+  const m=curSeason().members.find(x=>x.id==mid||x.id===String(mid));
+  if(!m) return;
+  const name=document.getElementById('em-name').value.trim();
+  if(!name){alert('請輸入姓名');return;}
+  const gEl=document.querySelector('#gs-edit .sel-m, #gs-edit .sel-f');
+  const statusEl=document.querySelector('#mb .ro.sel');
+  m.name=name;
+  m.gender=gEl?(gEl.classList.contains('sel-m')?'m':'f'):m.gender;
+  m.note=document.getElementById('em-note').value;
+  m.inactive=statusEl&&statusEl.textContent==='已退出';
+  closeM();
+  renderMembers();
+  showSaving(); saveMember(S.currentSeasonId, m).then(hideSaving);
+}
+window.saveMemberEdit=saveMemberEdit;
 function closeM(){document.getElementById('mo').classList.remove('open')}
 function moOv(e){if(e.target===document.getElementById('mo'))closeM()}
 
@@ -1085,6 +1174,7 @@ window.selGM=selGM; window.selGBy=selGBy; window.showGCI=showGCI;
 window.selCat=selCat; window.addCat=addCat; window.selG=selG;
 window.setRefundMode=setRefundMode; window.openSessionDetail=openSessionDetail;
 window.updateGuestName=updateGuestName; window.updateGuestGender=updateGuestGender;
+window.saveMemberEdit=saveMemberEdit; window.memberRow=memberRow;
 
 // 關閉下拉（點外部）
 document.addEventListener('click',e=>{
