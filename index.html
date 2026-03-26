@@ -207,14 +207,24 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 <div class="page" id="page-ledger">
   <div class="hdr"><div></div><div class="htl" style="font-family:'Noto Serif TC',serif">帳本</div><div></div></div>
   <div class="sa">
-    <div class="mg">
-      <div class="mc"><div class="ml">本月支出</div><div class="mv">0</div></div>
-      <div class="mc"><div class="ml">本月收入</div><div class="mv">0</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;background:var(--card);border-radius:12px;border:1px solid var(--border);padding:10px 14px">
+      <div onclick="prevMonth()" style="font-size:18px;color:var(--accent);cursor:pointer;padding:0 6px">‹</div>
+      <div style="font-size:14px;font-weight:500;color:var(--txt)" id="ledger-month-label">2025年3月</div>
+      <div onclick="nextMonth()" style="font-size:18px;color:var(--accent);cursor:pointer;padding:0 6px">›</div>
     </div>
-    <div class="tb"><div class="tab active" onclick="swTab(this)">全部</div><div class="tab" onclick="swTab(this)">支出</div><div class="tab" onclick="swTab(this)">收入</div><div class="tab" onclick="swTab(this)">投資</div></div>
-    <div class="card">
-      <div style="text-align:center;padding:16px;color:var(--t3);font-size:12px">尚無記錄</div>
+    <div class="mg" id="ledger-summary">
+      <div class="mc"><div class="ml">本月支出</div><div class="mv" id="l-exp">0</div></div>
+      <div class="mc"><div class="ml">本月收入</div><div class="mv" id="l-inc">0</div></div>
+      <div class="mc"><div class="ml">投資投入</div><div class="mv" style="color:var(--pu)" id="l-inv">0</div></div>
+      <div class="mc"><div class="ml">結餘</div><div class="mv" id="l-bal">0</div></div>
     </div>
+    <div class="tb">
+      <div class="tab active" onclick="filterLedger(this,'all')">全部</div>
+      <div class="tab" onclick="filterLedger(this,'exp')">支出</div>
+      <div class="tab" onclick="filterLedger(this,'inc')">收入</div>
+      <div class="tab" onclick="filterLedger(this,'inv')">投資</div>
+    </div>
+    <div id="ledger-list"><div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">尚無記錄</div></div>
   </div>
   <button style="position:fixed;bottom:calc(var(--nav)+16px);right:20px;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;z-index:50" onclick="openM('expense')">＋</button>
 </div>
@@ -331,6 +341,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
       <div class="tab" onclick="switchReportTab(this,'invest')">投資</div>
       <div class="tab" onclick="switchReportTab(this,'vb')">排球季</div>
     </div>
+    <div id="report-season-sel" style="display:none;margin-bottom:12px"></div>
     <div id="report-body"></div>
   </div>
 </div>
@@ -475,6 +486,7 @@ function goPage(id){
   const i=mainPages.indexOf(id);if(i>=0)document.getElementById(navIds[i]).classList.add('active');
   if(id==='page-vb'){renderVbPage()}
   if(id==='page-report'){renderReport('general')}
+  if(id==='page-ledger'){renderLedger()}
 }
 function goSub(id){
   stack.push(id);show(id);
@@ -627,8 +639,10 @@ function memberRow(m){
 // ═══ 場次列表 ═══
 function sessionCard(s, onclick){
   const season=curSeason();
-  const mCount=season.members.filter(m=>!s.absent.includes(m.id)&&m.gender==='m').length + s.guests.filter(g=>g.gender==='m').length;
-  const fCount=season.members.filter(m=>!s.absent.includes(m.id)&&m.gender==='f').length + s.guests.filter(g=>g.gender==='f').length;
+  const absentStr=s.absent.map(String);
+  const mCount=season.members.filter(m=>!absentStr.includes(String(m.id))&&!m.inactive&&m.gender==='m').length + (s.guests||[]).filter(g=>g.gender==='m').length;
+  const fCount=season.members.filter(m=>!absentStr.includes(String(m.id))&&!m.inactive&&m.gender==='f').length + (s.guests||[]).filter(g=>g.gender==='f').length;
+  const total=mCount+fCount;
   const statusBdg=s.status==='cancel'?'<span class="bdg br">取消</span>':'<span class="bdg bg">正常</span>';
   return `<div class="cli" style="cursor:pointer" onclick="${onclick}">
     <div style="flex:1">
@@ -637,10 +651,11 @@ function sessionCard(s, onclick){
         ${statusBdg}
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--t2);font-weight:500">共 ${total} 人</span>
         <span class="gbd gm" style="font-size:10px">♂ ${mCount}</span>
         <span class="gbd gf" style="font-size:10px">♀ ${fCount}</span>
         ${s.absent.length>0?`<span style="font-size:10px;color:var(--rd)">請假 ${s.absent.length}人</span>`:''}
-        ${s.guests.length>0?`<span style="font-size:10px;color:var(--t3)">臨打 ${s.guests.length}人</span>`:''}
+        ${(s.guests||[]).length>0?`<span style="font-size:10px;color:var(--t3)">臨打 ${s.guests.length}人</span>`:''}
         ${s.status==='cancel'?`<span style="font-size:10px;color:var(--rd)">退費處理中</span>`:''}
       </div>
     </div>
@@ -680,8 +695,9 @@ function openSessionDetail(sid){
 
 function renderSessionDetail(s){
   const season=curSeason();
-  const mCount=season.members.filter(m=>!s.absent.includes(m.id)&&m.gender==='m').length+s.guests.filter(g=>g.gender==='m').length;
-  const fCount=season.members.filter(m=>!s.absent.includes(m.id)&&m.gender==='f').length+s.guests.filter(g=>g.gender==='f').length;
+  const _abStr=s.absent.map(String);
+  const mCount=season.members.filter(m=>!_abStr.includes(String(m.id))&&!m.inactive&&m.gender==='m').length+(s.guests||[]).filter(g=>g.gender==='m').length;
+  const fCount=season.members.filter(m=>!_abStr.includes(String(m.id))&&!m.inactive&&m.gender==='f').length+(s.guests||[]).filter(g=>g.gender==='f').length;
 
   let html=`<div class="card" style="margin-bottom:10px"><div class="cb">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -707,10 +723,10 @@ function renderSessionDetail(s){
 
   // 季打名單
   html+=`<div class="st">季打名單（點選標記請假）</div><div class="card">`;
-  season.members.forEach(m=>{
-    const absent=s.absent.includes(m.id);
+  season.members.filter(m=>!m.inactive).forEach(m=>{
+    const absent=s.absent.map(String).includes(String(m.id));
     const av=avCls(m);
-    html+=`<div class="smr${absent?' absent':''}" onclick="toggleAbsent(${s.id},${m.id})">
+    html+=`<div class="smr${absent?' absent':''}" onclick="toggleAbsent('${s.id}','${m.id}')">
       <div class="av ${av}" style="width:30px;height:30px;font-size:10px">${m.name.slice(0,2)}</div>
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px">
@@ -730,7 +746,7 @@ function renderSessionDetail(s){
   // 臨打名單
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
     <div class="st" style="margin:0">臨打名單</div>
-    <span style="font-size:12px;color:var(--accent);cursor:pointer" onclick="openM('guest',${s.id})">＋ 新增臨打</span>
+    <span style="font-size:12px;color:var(--accent);cursor:pointer" onclick="openM('guest','${s.id}')">＋ 新增臨打</span>
   </div>`;
   if(s.guests.length===0){
     html+=`<div style="text-align:center;padding:16px;color:var(--t3);font-size:12px;background:var(--card);border-radius:14px;border:1px solid var(--border)">尚無臨打成員</div>`;
@@ -1185,7 +1201,9 @@ window.addGuest = async function(){
   const gEl=document.querySelector('#gs-guest .sel-m, #gs-guest .sel-f');
   if(!name){alert('請輸入姓名');return;}
   const gender=gEl?(gEl.classList.contains('sel-m')?'m':'f'):'m';
-  const s=curSeason().sessions.find(x=>x.id===_gSid);
+  const s=curSeason().sessions.find(x=>x.id==_gSid||x.id===String(_gSid));
+  if(!s){alert('找不到場次');return;}
+  if(!s.guests) s.guests=[];
   s.guests.push({id:String(Date.now()),name,gender,paid:false,method:'',pdate:'',by:'',bank:''});
   closeM(); renderSessionDetail(s);
   showSaving(); await saveSession(S.currentSeasonId, s); hideSaving();
@@ -1471,12 +1489,101 @@ window.addVenueMember=async function(){
   showSaving(); await saveVenuesToFirebase(); hideSaving();
 };
 
+
+// ═══ 帳本月份切換 ═══
+let _ledgerYear = new Date().getFullYear();
+let _ledgerMonth = new Date().getMonth(); // 0-indexed
+let _ledgerFilter = 'all';
+let _ledgerData = []; // 暫存資料（未來接 Firebase）
+
+function renderLedger(){
+  const y=_ledgerYear, m=_ledgerMonth;
+  const label=`${y}年${m+1}月`;
+  const el=document.getElementById('ledger-month-label');
+  if(el) el.textContent=label;
+  // 過濾當月資料
+  const data=_ledgerData.filter(r=>{
+    const d=new Date(r.date);
+    return d.getFullYear()===y && d.getMonth()===m;
+  });
+  let filtered=data;
+  if(_ledgerFilter==='exp') filtered=data.filter(r=>r.type==='expense');
+  else if(_ledgerFilter==='inc') filtered=data.filter(r=>r.type==='income');
+  else if(_ledgerFilter==='inv') filtered=data.filter(r=>r.type==='invest');
+  // 統計
+  const exp=data.filter(r=>r.type==='expense').reduce((a,r)=>a+(r.amount||0),0);
+  const inc=data.filter(r=>r.type==='income').reduce((a,r)=>a+(r.amount||0),0);
+  const inv=data.filter(r=>r.type==='invest').reduce((a,r)=>a+(r.amount||0),0);
+  const lExp=document.getElementById('l-exp'); if(lExp) lExp.textContent=exp.toLocaleString();
+  const lInc=document.getElementById('l-inc'); if(lInc) lInc.textContent=inc.toLocaleString();
+  const lInv=document.getElementById('l-inv'); if(lInv) lInv.textContent=inv.toLocaleString();
+  const lBal=document.getElementById('l-bal'); if(lBal) lBal.textContent=(inc-exp).toLocaleString();
+  // 列表
+  const list=document.getElementById('ledger-list');
+  if(!list) return;
+  if(filtered.length===0){
+    list.innerHTML='<div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">本月尚無記錄</div>';
+    return;
+  }
+  const icons={'expense':'🧾','income':'💰','invest':'📈'};
+  const colors={'expense':'var(--al)','income':'var(--gnb)','invest':'var(--pub)'};
+  const amtColors={'expense':'var(--rd)','income':'var(--gn)','invest':'var(--pu)'};
+  const signs={'expense':'-','income':'+','invest':'－'};
+  list.innerHTML=`<div class="card">${filtered.map(r=>`<div class="cli">
+    <div class="txi" style="background:${colors[r.type]||'var(--bg2)'}">${icons[r.type]||'📝'}</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:500">${r.name||r.category||'—'}</div>
+      <div style="font-size:10px;color:var(--t3)">${r.date||''}${r.note?' ・ '+r.note:''}</div>
+    </div>
+    <div style="font-size:14px;font-weight:500;color:${amtColors[r.type]}">${signs[r.type]}${(r.amount||0).toLocaleString()}</div>
+  </div>`).join('')}</div>`;
+}
+
+window.prevMonth=function(){
+  _ledgerMonth--;
+  if(_ledgerMonth<0){_ledgerMonth=11;_ledgerYear--;}
+  renderLedger();
+};
+window.nextMonth=function(){
+  _ledgerMonth++;
+  if(_ledgerMonth>11){_ledgerMonth=0;_ledgerYear++;}
+  renderLedger();
+};
+window.filterLedger=function(el,filter){
+  _ledgerFilter=filter;
+  el.closest('.tb').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderLedger();
+};
+
+// ═══ 報表季選擇 ═══
+let _reportSeasonId = null;
+
+function renderReportSeasonSel(){
+  const el=document.getElementById('report-season-sel'); if(!el) return;
+  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px">
+    <div class="fl" style="margin-bottom:6px">選擇查看的季</div>
+    <select class="fi" style="margin:0" onchange="selectReportSeason(this.value)">
+      ${S.seasons.length===0?'<option value="">尚無季資料</option>':S.seasons.map(s=>`<option value="${s.id}"${s.id===_reportSeasonId?' selected':''}>${s.name}</option>`).join('')}
+    </select>
+  </div>`;
+}
+
+window.selectReportSeason=function(id){
+  _reportSeasonId=id;
+  renderReport('vb');
+};
+
 // ═══ 報表 ═══
 function renderReport(tab){
   const body=document.getElementById('report-body');
   if(!body) return;
+  const rsel=document.getElementById('report-season-sel');
   if(tab==='vb'){
-    const s=curSeason();
+    if(rsel) rsel.style.display='block';
+    if(!_reportSeasonId && S.seasons.length>0) _reportSeasonId=S.seasons[0].id;
+    renderReportSeasonSel();
+    const s=S.seasons.find(x=>x.id===_reportSeasonId)||S.seasons[0];
     if(!s){ body.innerHTML='<div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">尚無排球季資料</div>'; return; }
     const activeM=s.members.filter(m=>!m.inactive);
     const paid=activeM.filter(m=>m.paid).length;
@@ -1525,6 +1632,7 @@ function renderReport(tab){
         </div>`).join('')
       }</div>`;
   } else {
+    if(rsel) rsel.style.display='none';
     body.innerHTML=`<div style="text-align:center;padding:36px 24px;color:var(--t3);font-size:13px">
       <div style="font-size:24px;margin-bottom:12px">📊</div>
       ${tab==='general'?'一般記帳':'投資'}報表即將推出
@@ -1551,6 +1659,8 @@ window.setRefundMode=setRefundMode; window.openSessionDetail=openSessionDetail;
 window.updateGuestName=updateGuestName; window.updateGuestGender=updateGuestGender;
 window.saveMemberEdit=saveMemberEdit; window.memberRow=memberRow;
 window.addVenue=addVenue; window.deleteVenue=deleteVenue; window.renderVenueList=renderVenueList;
+window.renderLedger=renderLedger; window.prevMonth=prevMonth; window.nextMonth=nextMonth; window.filterLedger=filterLedger;
+window.renderReport=renderReport; window.renderReportSeasonSel=renderReportSeasonSel; window.selectReportSeason=selectReportSeason;
 
 // 關閉下拉（點外部）
 document.addEventListener('click',e=>{
