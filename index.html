@@ -262,6 +262,11 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
       <div class="fnr" onclick="goSub('page-fees')"><div class="fni">💰</div><div style="flex:1"><div style="font-size:13px;font-weight:500">收退費作業</div><div style="font-size:10px;color:var(--t3);margin-top:1px">標記繳費、代收、退費處理</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
       <div class="fnr" onclick="goSub('page-unpaid')"><div class="fni">📋</div><div style="flex:1"><div style="font-size:13px;font-weight:500">未繳清單</div><div style="font-size:10px;color:var(--t3);margin-top:1px" id="unpaid-desc">—</div></div><div style="font-size:14px;color:var(--t3)">›</div></div>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+      <div class="st" style="margin:0">包場資訊</div>
+      <span style="font-size:12px;color:var(--accent);cursor:pointer" onclick="openM('venue')">＋ 新增包場</span>
+    </div>
+    <div id="venue-list" style="margin-bottom:10px"></div>
     <div class="st">最近場次</div>
     <div class="card" id="session-list-home"></div>
   </div>
@@ -312,14 +317,12 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 <div class="page" id="page-report">
   <div class="hdr"><div></div><div class="htl" style="font-family:'Noto Serif TC',serif">報表</div><div class="hac">匯出</div></div>
   <div class="sa">
-    <div class="tb"><div class="tab active" onclick="swTab(this)">一般記帳</div><div class="tab" onclick="swTab(this)">投資</div><div class="tab" onclick="swTab(this)">排球季</div></div>
-    <div class="mg">
-      <div class="mc"><div class="ml">總收入</div><div class="mv" style="color:var(--gn)">0</div></div>
-      <div class="mc"><div class="ml">總支出</div><div class="mv" style="color:var(--rd)">0</div></div>
-      <div class="mc"><div class="ml">投資投入</div><div class="mv" style="color:var(--pu)">0</div></div>
-      <div class="mc"><div class="ml">可用結餘</div><div class="mv">0</div></div>
+    <div class="tb">
+      <div class="tab active" onclick="switchReportTab(this,'general')">一般記帳</div>
+      <div class="tab" onclick="switchReportTab(this,'invest')">投資</div>
+      <div class="tab" onclick="switchReportTab(this,'vb')">排球季</div>
     </div>
-    <div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">報表功能即將推出</div>
+    <div id="report-body"></div>
   </div>
 </div>
 
@@ -462,6 +465,7 @@ function goPage(id){
   navIds.forEach(n=>document.getElementById(n).classList.remove('active'));
   const i=mainPages.indexOf(id);if(i>=0)document.getElementById(navIds[i]).classList.add('active');
   if(id==='page-vb'){renderVbPage()}
+  if(id==='page-report'){renderReport('general')}
 }
 function goSub(id){
   stack.push(id);show(id);
@@ -524,7 +528,8 @@ function renderVbPage(){
   }
   // 更新下拉顯示
   document.getElementById('sel-season-name').textContent=s.name;
-  document.getElementById('sel-season-date').textContent=`${s.start} – ${s.end} ・ ${s.status==='active'?'進行中':'已結束'}`;
+  document.getElementById('sel-season-date').textContent=`${s.start} – ${s.end} ・ ${s.weekday||''} ・ ${s.status==='active'?'進行中':'已結束'}`;
+  renderVenueList();
   // metrics
   const activeMembers=s.members.filter(m=>!m.inactive);
   const paid=activeMembers.filter(m=>m.paid).length;
@@ -1020,10 +1025,30 @@ const modals={
   expense:{t:'新增支出',b:()=>`<div class="fl">金額</div><input class="fi" type="number" placeholder="NT$ 0"><div class="fl">分類</div>${catPicker(S.expCats,'exp')}<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">備註</div><input class="fi" placeholder="選填"><button class="bpb" onclick="closeM()">儲存</button><button class="bcb" onclick="closeM()">取消</button>`},
   income:{t:'新增收入',b:()=>`<div class="fl">金額</div><input class="fi" type="number" placeholder="NT$ 0"><div class="fl">來源</div>${catPicker(S.incCats,'inc')}<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">備註</div><input class="fi" placeholder="選填"><button class="bpb" onclick="closeM()">儲存</button><button class="bcb" onclick="closeM()">取消</button>`},
   invest:{t:'投資投入',b:()=>`<div class="fl">投入金額</div><input class="fi" type="number" placeholder="NT$ 0"><div class="fl">投資標的</div><input class="fi" placeholder="例：台積電、0050"><div class="fl">類型</div>${catPicker(S.invCats,'inv')}<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">備註</div><input class="fi" placeholder="選填"><button class="bpb" onclick="closeM()">儲存</button><button class="bcb" onclick="closeM()">取消</button>`},
-  member:{t:'新增成員',b:()=>`<div class="fl">姓名</div><input class="fi" placeholder="姓名"><div class="fl">性別</div>${genderSel('mem')}<div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="addMember()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
-  session:{t:'新增場次',b:()=>`<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">狀態</div><div class="ro-w" style="margin:0 0 12px"><div class="ro sel" onclick="toggleRO(this)">正常</div><div class="ro" onclick="toggleRO(this)">取消</div></div><div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="addSession()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
-  season:{t:'新增季',b:()=>`<div class="fl">季名稱</div><input class="fi" id="sn-name" placeholder="例：2025 下半季"><div class="fl">開始日期</div><input class="fi" id="sn-start" type="date"><div class="fl">結束日期</div><input class="fi" id="sn-end" type="date"><div class="fl">季費金額</div><input class="fi" id="sn-fee" type="number" placeholder="NT$ 0"><div class="fl">請假退費金額（固定）</div><input class="fi" id="sn-refund" type="number" placeholder="例：300"><button class="bpb" onclick="addSeason()">建立</button><button class="bcb" onclick="closeM()">取消</button>`},
-  guest:{t:'新增臨打',b:()=>`<div class="fl">姓名</div><input class="fi" id="g-name" placeholder="姓名"><div class="fl">性別</div>${genderSel('guest')}<button class="bpb" onclick="addGuest()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
+  member:{t:'新增成員',b:()=>`<div class="fl">姓名</div><input class="fi" placeholder="姓名"><div class="fl">性別</div>${genderSel('mem')}<div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="window.addMember()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
+  session:{t:'新增場次',b:()=>`<div class="fl">日期</div><input class="fi" type="date" value="${td()}"><div class="fl">狀態</div><div class="ro-w" style="margin:0 0 12px"><div class="ro sel" onclick="toggleRO(this)">正常</div><div class="ro" onclick="toggleRO(this)">取消</div></div><div class="fl">備註（選填）</div><input class="fi" placeholder="備註"><button class="bpb" onclick="window.addSession()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
+  season:{t:'新增季',b:()=>`<div class="fl">季名稱</div><input class="fi" id="sn-name" placeholder="例：2025 下半季">
+    <div class="fl">開始日期</div><input class="fi" id="sn-start" type="date">
+    <div class="fl">結束日期</div><input class="fi" id="sn-end" type="date">
+    <div class="fl">固定打球星期</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="weekday-sel">
+      <div class="ro" onclick="toggleRO(this)" style="flex:none">週一</div>
+      <div class="ro" onclick="toggleRO(this)" style="flex:none">週二</div>
+      <div class="ro" onclick="toggleRO(this)" style="flex:none">週三</div>
+      <div class="ro" onclick="toggleRO(this)" style="flex:none">週四</div>
+      <div class="ro" onclick="toggleRO(this)" style="flex:none">週五</div>
+      <div class="ro sel" onclick="toggleRO(this)" style="flex:none">週六</div>
+      <div class="ro" onclick="toggleRO(this)" style="flex:none">週日</div>
+    </div>
+    <div class="fl">季費金額</div><input class="fi" id="sn-fee" type="number" placeholder="NT$ 0">
+    <div class="fl">請假退費金額（固定）</div><input class="fi" id="sn-refund" type="number" placeholder="例：300">
+    <button class="bpb" onclick="window.addSeason()">建立</button><button class="bcb" onclick="closeM()">取消</button>`},
+  venue:{t:'新增包場',b:()=>`
+    <div class="fl">包場日期</div><input class="fi" id="vn-date" type="date" value="${td()}">
+    <div class="fl">場地名稱</div><input class="fi" id="vn-name" placeholder="例：○○體育館">
+    <div class="fl">包場費用</div><input class="fi" id="vn-cost" type="number" placeholder="NT$ 0">
+    <button class="bpb" onclick="window.addVenue()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
+  guest:{t:'新增臨打',b:()=>`<div class="fl">姓名</div><input class="fi" id="g-name" placeholder="姓名"><div class="fl">性別</div>${genderSel('guest')}<button class="bpb" onclick="window.addGuest()">新增</button><button class="bcb" onclick="closeM()">取消</button>`},
   editMember:{t:'編輯成員',b:(mid)=>{
     const m=curSeason().members.find(x=>x.id==mid||x.id===String(mid));
     if(!m) return '';
@@ -1043,7 +1068,7 @@ const modals={
       <div class="ro ${activeSel}" onclick="toggleRO(this)">正常參與</div>
       <div class="ro ${inactiveSel}" onclick="toggleRO(this)">已退出</div>
     </div>
-    <button class="bpb" onclick="saveMemberEdit('${m.id}')">儲存</button>
+    <button class="bpb" onclick="window.saveMemberEdit('${m.id}')">儲存</button>
     <button class="bcb" onclick="closeM()">取消</button>`;
   }},
 };
@@ -1081,15 +1106,43 @@ window.addSeason = async function(){
   const end=document.getElementById('sn-end').value;
   const fee=parseInt(document.getElementById('sn-fee').value)||0;
   const absentRefund=parseInt(document.getElementById('sn-refund').value)||0;
+  const wdEl=document.querySelector('#weekday-sel .ro.sel');
+  const weekday=wdEl?wdEl.textContent:'週六';
   if(!name){alert('請輸入季名稱');return;}
   const newId=String(Date.now());
-  const newSeason={id:newId,name,start:start||'—',end:end||'—',status:'active',fee,absentRefund,createdAt:Date.now()};
+  const newSeason={id:newId,name,start:start||'—',end:end||'—',status:'active',fee,absentRefund,weekday,venues:[],createdAt:Date.now()};
   S.seasons.unshift({...newSeason,members:[],sessions:[]});
   S.currentSeasonId=newId;
   closeM(); renderVbPage();
   showSaving(); await saveSeason(newId, newSeason); hideSaving();
 };
 
+window.addVenue = async function(){
+  const date=document.getElementById('vn-date').value;
+  const name=document.getElementById('vn-name').value.trim();
+  const cost=parseInt(document.getElementById('vn-cost').value)||0;
+  if(!name){alert('請輸入場地名稱');return;}
+  const s=curSeason();
+  if(!s.venues) s.venues=[];
+  const v={id:String(Date.now()),date,name,cost};
+  s.venues.unshift(v);
+  closeM();
+  renderVenueList();
+  showSaving();
+  const {members,sessions,...data}=s;
+  await saveSeason(S.currentSeasonId,{...data,venues:s.venues});
+  hideSaving();
+};
+window.deleteVenue = async function(vid){
+  if(!confirm('確定刪除這筆包場記錄？')) return;
+  const s=curSeason();
+  s.venues=s.venues.filter(v=>v.id!==vid);
+  renderVenueList();
+  showSaving();
+  const {members,sessions,...data}=s;
+  await saveSeason(S.currentSeasonId,{...data,venues:s.venues});
+  hideSaving();
+};
 window.addMember = async function(){
   const name=document.querySelector('#mb .fi').value.trim();
   const gEl=document.querySelector('#gs-mem .sel-m, #gs-mem .sel-f');
@@ -1173,7 +1226,97 @@ window.unmarkGP = async function(sid,gid){
   showSaving(); await saveSession(S.currentSeasonId, s); hideSaving();
 };
 
+function renderVenueList(){
+  const el=document.getElementById('venue-list');
+  if(!el) return;
+  const s=curSeason();
+  if(!s||!s.venues||s.venues.length===0){
+    el.innerHTML='<div style="text-align:center;padding:12px;color:var(--t3);font-size:12px;background:var(--card);border-radius:14px;border:1px solid var(--border)">尚無包場記錄</div>';
+    return;
+  }
+  el.innerHTML=`<div class="card">${s.venues.map(v=>`<div class="cli">
+    <div class="fni">🏟</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:500">${v.name}</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:1px">${v.date||'—'}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:13px;font-weight:500;color:var(--accent)">NT$${(v.cost||0).toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--rd);cursor:pointer;margin-top:2px" onclick="deleteVenue('${v.id}')">刪除</div>
+    </div>
+  </div>`).join('')}</div>`;
+}
 // ── 讓所有函式全域可用（module script 需要）──
+
+// ═══ 報表 ═══
+function renderReport(tab){
+  const body=document.getElementById('report-body');
+  if(!body) return;
+  if(tab==='vb'){
+    const s=curSeason();
+    if(!s){ body.innerHTML='<div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">尚無排球季資料</div>'; return; }
+    const activeM=s.members.filter(m=>!m.inactive);
+    const paid=activeM.filter(m=>m.paid).length;
+    const unpaid=activeM.filter(m=>!m.paid).length;
+    const refundPending=activeM.filter(m=>m.refund>0&&m.rs==='pending').length;
+    const totalCollected=paid*s.fee;
+    const totalExpected=activeM.length*s.fee;
+    const totalRefund=activeM.reduce((a,m)=>a+(m.refund||0),0);
+    const normalSessions=s.sessions.filter(x=>x.status==='normal').length;
+    const cancelSessions=s.sessions.filter(x=>x.status==='cancel').length;
+    const paidByLine=activeM.filter(m=>m.paid&&m.method==='line').length;
+    const paidByBank=activeM.filter(m=>m.paid&&m.method==='bank').length;
+    const paidByCash=activeM.filter(m=>m.paid&&m.method==='cash').length;
+    body.innerHTML=`
+      <div class="st">${s.name} 總覽</div>
+      <div class="mg">
+        <div class="mc"><div class="ml">季打人數</div><div class="mv">${activeM.length}人</div></div>
+        <div class="mc"><div class="ml">已收金額</div><div class="mv" style="color:var(--gn)">${totalCollected.toLocaleString()}</div></div>
+        <div class="mc"><div class="ml">應收總額</div><div class="mv">${totalExpected.toLocaleString()}</div></div>
+        <div class="mc"><div class="ml">待退費</div><div class="mv" style="color:var(--am)">${totalRefund.toLocaleString()}</div></div>
+      </div>
+      <div class="st">繳費狀況</div>
+      <div class="card">
+        <div class="cli"><div style="flex:1;font-size:13px;font-weight:500">已繳</div><div style="font-size:13px;font-weight:500;color:var(--gn)">${paid} 人</div></div>
+        <div class="cli"><div style="flex:1;font-size:13px;font-weight:500">未繳</div><div style="font-size:13px;font-weight:500;color:var(--rd)">${unpaid} 人</div></div>
+        <div class="cli"><div style="flex:1;font-size:13px;font-weight:500">待退費</div><div style="font-size:13px;font-weight:500;color:var(--am)">${refundPending} 人</div></div>
+      </div>
+      <div class="st">繳費方式分佈</div>
+      <div class="card">
+        <div class="cli"><div style="flex:1;font-size:13px">LinePay</div><div style="font-size:13px;font-weight:500">${paidByLine} 人</div></div>
+        <div class="cli"><div style="flex:1;font-size:13px">轉帳</div><div style="font-size:13px;font-weight:500">${paidByBank} 人</div></div>
+        <div class="cli"><div style="flex:1;font-size:13px">現金</div><div style="font-size:13px;font-weight:500">${paidByCash} 人</div></div>
+      </div>
+      <div class="st">場次紀錄</div>
+      <div class="card">
+        <div class="cli"><div style="flex:1;font-size:13px">正常場次</div><div style="font-size:13px;font-weight:500">${normalSessions} 場</div></div>
+        <div class="cli"><div style="flex:1;font-size:13px">取消場次</div><div style="font-size:13px;font-weight:500;color:var(--rd)">${cancelSessions} 場</div></div>
+      </div>
+      <div class="st">未繳成員</div>
+      <div class="card">${unpaid===0
+        ?'<div style="padding:14px;text-align:center;color:var(--t3);font-size:12px">全部已繳 ✓</div>'
+        :activeM.filter(m=>!m.paid).map(m=>`<div class="cli">
+          <div class="av ${avCls(m)}">${m.name.slice(0,2)}</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:500">${m.name}</div><div style="font-size:10px;color:var(--t3)">${gBdg(m.gender)}</div></div>
+          <div style="font-size:13px;font-weight:500;color:var(--rd)">${s.fee.toLocaleString()}</div>
+        </div>`).join('')
+      }</div>`;
+  } else {
+    body.innerHTML=`<div style="text-align:center;padding:36px 24px;color:var(--t3);font-size:13px">
+      <div style="font-size:24px;margin-bottom:12px">📊</div>
+      ${tab==='general'?'一般記帳':'投資'}報表即將推出
+    </div>`;
+  }
+}
+
+function switchReportTab(el, tab){
+  el.closest('.tb').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderReport(tab);
+}
+window.switchReportTab=switchReportTab;
+window.renderReport=renderReport;
+
 window.openM=openM; window.closeM=closeM; window.moOv=moOv;
 window.goPage=goPage; window.goSub=goSub; window.goBack=goBack;
 window.swTab=swTab; window.toggleRO=toggleRO;
@@ -1184,6 +1327,7 @@ window.selCat=selCat; window.addCat=addCat; window.selG=selG;
 window.setRefundMode=setRefundMode; window.openSessionDetail=openSessionDetail;
 window.updateGuestName=updateGuestName; window.updateGuestGender=updateGuestGender;
 window.saveMemberEdit=saveMemberEdit; window.memberRow=memberRow;
+window.addVenue=addVenue; window.deleteVenue=deleteVenue; window.renderVenueList=renderVenueList;
 
 // 關閉下拉（點外部）
 document.addEventListener('click',e=>{
