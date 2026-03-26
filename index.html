@@ -382,7 +382,7 @@ onAuthStateChanged(auth, async user => {
     currentUser = user;
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app-wrap').style.display = 'block';
-    document.getElementById('user-name').textContent = user.displayName || user.email;
+    const unEl=document.getElementById('user-name'); if(unEl) unEl.textContent = user.displayName || user.email;
     await loadAllData();
     renderVbPage();
   } else {
