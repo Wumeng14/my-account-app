@@ -404,6 +404,7 @@ window.signOutUser = async function(){
 onAuthStateChanged(auth, async user => {
   if(user){
     currentUser = user;
+    window._curUser = user.uid;
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app-wrap').style.display = 'block';
     const unEl=document.getElementById('user-name'); if(unEl) unEl.textContent = user.displayName || user.email;
@@ -522,9 +523,12 @@ function renderSeasonDD(){
   const dd=document.getElementById('season-dropdown');
   dd.innerHTML=S.seasons.map(s=>{
     const statusLabel=s.status==='active'?'進行中':'已結束';
-    return `<div class="season-opt${s.id===S.currentSeasonId?' active':''}" onclick="selectSeason('${s.id}')">
-      <div class="season-opt-name">${s.name}</div>
-      <div class="season-opt-date">${s.start} – ${s.end} ・ ${statusLabel}</div>
+    return `<div class="season-opt${s.id===S.currentSeasonId?' active':''}" style="display:flex;align-items:center;justify-content:space-between">
+      <div style="flex:1" onclick="selectSeason('${s.id}')">
+        <div class="season-opt-name">${s.name}</div>
+        <div class="season-opt-date">${s.start} – ${s.end} ・ ${statusLabel}</div>
+      </div>
+      <div style="font-size:11px;color:var(--rd);cursor:pointer;padding:4px 8px;flex-shrink:0" onclick="event.stopPropagation();deleteSeason('${s.id}')">刪除</div>
     </div>`;
   }).join('')+`<div class="season-add-opt" onclick="closeSeasonDD();openM('season')">＋ 新增季</div>`;
 }
@@ -533,6 +537,40 @@ function selectSeason(id){
   closeSeasonDD();
   renderVbPage();
 }
+
+
+// ═══ 刪除場次 ═══
+window.deleteSession = async function(sid){
+  if(!confirm('確定刪除這筆場次？此操作無法復原。')) return;
+  const season=curSeason(); if(!season) return;
+  season.sessions=season.sessions.filter(s=>s.id!==String(sid)&&s.id!=sid);
+  renderSessions(); renderSessionsHome();
+  showSaving();
+  try{
+    await deleteDoc(doc(db,`users/${currentUser.uid}/seasons/${S.currentSeasonId}/sessions/${String(sid)}`));
+  }catch(e){console.error('deleteSession error:',e);}
+  hideSaving();
+};
+
+// ═══ 刪除季 ═══
+window.deleteSeason = async function(sid){
+  if(!confirm('確定刪除此季？所有場次、成員資料將一併刪除，此操作無法復原。')) return;
+  S.seasons=S.seasons.filter(s=>s.id!==String(sid)&&s.id!=sid);
+  if(S.currentSeasonId===String(sid)||S.currentSeasonId==sid){
+    S.currentSeasonId=S.seasons.length>0?S.seasons[0].id:null;
+  }
+  closeSeasonDD(); renderVbPage();
+  showSaving();
+  try{
+    const uid=currentUser.uid;
+    const mSnap=await getDocs(collection(db,`users/${uid}/seasons/${sid}/members`));
+    for(const d of mSnap.docs) await deleteDoc(d.ref);
+    const sSnap=await getDocs(collection(db,`users/${uid}/seasons/${sid}/sessions`));
+    for(const d of sSnap.docs) await deleteDoc(d.ref);
+    await deleteDoc(doc(db,`users/${uid}/seasons/${String(sid)}`));
+  }catch(e){console.error('deleteSeason error:',e);}
+  hideSaving();
+};
 
 // ═══ 排球管理主頁 ═══
 function renderVbPage(){
@@ -558,8 +596,10 @@ function renderVbPage(){
   const unpaid=activeMembers.filter(m=>!m.paid).length;
   const refundPending=activeMembers.filter(m=>m.refund>0&&m.rs==='pending').length;
   const totalCollected=paid*s.fee;
+  const maleCount=activeMembers.filter(m=>m.gender==='m').length;
+  const femaleCount=activeMembers.filter(m=>m.gender==='f').length;
   document.getElementById('vb-metrics').innerHTML=`
-    <div class="mc"><div class="ml">本季人數</div><div class="mv">${activeMembers.length}人</div></div>
+    <div class="mc"><div class="ml">本季人數</div><div class="mv">${activeMembers.length}人</div><div class="ms"><span class="gbd gm" style="font-size:10px">♂ ${maleCount}</span> <span class="gbd gf" style="font-size:10px">♀ ${femaleCount}</span></div></div>
     <div class="mc"><div class="ml">已收金額</div><div class="mv">${totalCollected.toLocaleString()}</div></div>
     <div class="mc"><div class="ml">未繳</div><div class="mv" style="color:var(--rd)">${unpaid}人</div></div>
     <div class="mc"><div class="ml">待退費</div><div class="mv" style="color:var(--am)">${refundPending}人</div></div>`;
@@ -637,29 +677,34 @@ function memberRow(m){
 }
 
 // ═══ 場次列表 ═══
-function sessionCard(s, onclick){
+function sessionCard(s, onclick, showDelete=false){
   const season=curSeason();
   const absentStr=s.absent.map(String);
   const mCount=season.members.filter(m=>!absentStr.includes(String(m.id))&&!m.inactive&&m.gender==='m').length + (s.guests||[]).filter(g=>g.gender==='m').length;
   const fCount=season.members.filter(m=>!absentStr.includes(String(m.id))&&!m.inactive&&m.gender==='f').length + (s.guests||[]).filter(g=>g.gender==='f').length;
   const total=mCount+fCount;
   const statusBdg=s.status==='cancel'?'<span class="bdg br">取消</span>':'<span class="bdg bg">正常</span>';
-  return `<div class="cli" style="cursor:pointer" onclick="${onclick}">
-    <div style="flex:1">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-        <span style="font-size:14px;font-weight:500${s.status==='cancel'?';color:var(--rd)':''}">${s.date}</span>
-        ${statusBdg}
+  return `<div class="card" style="margin-bottom:8px;overflow:hidden">
+    <div style="display:flex;align-items:center;padding:12px 15px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="${onclick}">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <span style="font-size:14px;font-weight:500${s.status==='cancel'?';color:var(--rd)':''}">${s.date}</span>
+          ${statusBdg}
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--t2);font-weight:500">共 ${total} 人</span>
+          <span class="gbd gm" style="font-size:10px">♂ ${mCount}</span>
+          <span class="gbd gf" style="font-size:10px">♀ ${fCount}</span>
+          ${s.absent.length>0?`<span style="font-size:10px;color:var(--rd)">請假 ${s.absent.length}人</span>`:''}
+          ${(s.guests||[]).length>0?`<span style="font-size:10px;color:var(--t3)">臨打 ${(s.guests||[]).length}人</span>`:''}
+          ${s.status==='cancel'?`<span style="font-size:10px;color:var(--rd)">退費處理中</span>`:''}
+        </div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--t2);font-weight:500">共 ${total} 人</span>
-        <span class="gbd gm" style="font-size:10px">♂ ${mCount}</span>
-        <span class="gbd gf" style="font-size:10px">♀ ${fCount}</span>
-        ${s.absent.length>0?`<span style="font-size:10px;color:var(--rd)">請假 ${s.absent.length}人</span>`:''}
-        ${(s.guests||[]).length>0?`<span style="font-size:10px;color:var(--t3)">臨打 ${s.guests.length}人</span>`:''}
-        ${s.status==='cancel'?`<span style="font-size:10px;color:var(--rd)">退費處理中</span>`:''}
-      </div>
+      <div style="font-size:14px;color:var(--t3);margin-left:8px">›</div>
     </div>
-    <div style="font-size:14px;color:var(--t3);margin-left:8px">›</div>
+    ${showDelete?`<div style="padding:6px 15px 10px;display:flex;justify-content:flex-end;border-top:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--rd);cursor:pointer" onclick="event.stopPropagation();deleteSession('${s.id}')">刪除場次</span>
+    </div>`:''}
   </div>`;
 }
 
@@ -671,7 +716,7 @@ function renderSessionsHome(){
     el.innerHTML='<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">尚無場次紀錄</div>';
     return;
   }
-  el.innerHTML=s.sessions.map(sess=>sessionCard(sess,`openSessionDetail('${sess.id}')`)).join('');
+  el.innerHTML=s.sessions.map(sess=>sessionCard(sess,`openSessionDetail('${sess.id}')`,true)).join('');
 }
 function renderSessions(){
   const s=curSeason();
@@ -1718,6 +1763,7 @@ window.saveMemberEdit=saveMemberEdit; window.memberRow=memberRow;
 window.addVenue=addVenue; window.deleteVenue=deleteVenue; window.renderVenueList=renderVenueList;
 window.toggleAllImport=function(c){document.querySelectorAll('#mb input[type=checkbox]').forEach(cb=>cb.checked=c);};
 window.renderLedger=renderLedger; window.prevMonth=prevMonth; window.nextMonth=nextMonth; window.filterLedger=filterLedger;
+window.deleteSession=deleteSession; window.deleteSeason=deleteSeason;
 window.renderReport=renderReport; window.renderReportSeasonSel=renderReportSeasonSel; window.selectReportSeason=selectReportSeason;
 
 // 關閉下拉（點外部）
